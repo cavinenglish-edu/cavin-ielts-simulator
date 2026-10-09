@@ -27,14 +27,14 @@ export default function Home() {
         <div className="max-w-3xl mx-auto text-center flex flex-col items-center">
           
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium mb-8">
-            <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-            <span>Phòng luyện thi IELTS Speaking 1:1 Chuẩn Khảo Thí</span>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-xs font-semibold mb-8 shadow-sm">
+            <Sparkles className="w-4 h-4 text-blue-600" />
+            <span className="tracking-wide uppercase">Phòng luyện thi IELTS Speaking 1:1 Chuẩn Khảo Thí IDP/BC</span>
           </div>
 
           {/* Main Title */}
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight leading-tight sm:leading-tight mb-6">
-            Hệ thống thi thử IELTS 1:1 - Cavin English
+            Hệ thống thi thử IELTS 1:1 - Cavin&apos;s English
           </h1>
 
           {/* Subtitle */}
@@ -89,9 +89,9 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="w-full border-t border-slate-100 py-8 px-6 text-center text-xs text-slate-600 flex flex-col items-center gap-2 bg-white">
-        <p>© 2026 Cavin English (cavinenglish2edu.com). All rights reserved.</p>
+        <p>© 2026 Cavin&apos;s English (cavinenglish2edu.com). All rights reserved.</p>
         <p className="max-w-4xl text-[11px] text-slate-400 leading-relaxed">
-          IELTS® là thương hiệu đã đăng ký của Cambridge University Press & Assessment, IDP: IELTS Australia và British Council. Website này là hệ thống mô phỏng độc lập và không có liên kết trực tiếp hoặc được ủy quyền bởi các tổ chức trên.
+          IELTS® là thương hiệu đã đăng ký của Cambridge University Press & Assessment, IDP: IELTS Australia và British Council. Website này là hệ thống mô phỏng độc lập sử dụng phiên bản AI lõi Gemini Ultra Pro và ChatGPT Premium Max được thiết kế độc quyền cho Cavin&apos;s English.
         </p>
       </footer>
     </div>
