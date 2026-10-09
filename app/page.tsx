@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Mic, Clock, Award, Sparkles, ChevronRight, Volume2 } from "lucide-react";
+import { GraduationCap, Clock, Award, Sparkles, ChevronRight, Mic, BookOpenCheck } from "lucide-react";
 
 export default function Home() {
   return (
@@ -9,10 +9,10 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm shadow-blue-500/20">
-              <Mic className="w-5 h-5" />
+              <GraduationCap className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-bold text-lg text-slate-900 tracking-tight">Cavin English</span>
+              <span className="font-bold text-lg text-slate-900 tracking-tight">Cavin&apos;s English</span>
               <span className="text-xs text-blue-600 font-medium ml-2 px-2 py-0.5 bg-blue-50 rounded-full border border-blue-100">Simulator</span>
             </div>
           </div>
@@ -27,14 +27,14 @@ export default function Home() {
         <div className="max-w-3xl mx-auto text-center flex flex-col items-center">
           
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-xs font-semibold mb-8 shadow-sm">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-xs font-bold mb-8 shadow-sm">
             <Sparkles className="w-4 h-4 text-blue-600" />
             <span className="tracking-wide uppercase">Phòng luyện thi IELTS Speaking 1:1 Chuẩn Khảo Thí IDP/BC</span>
           </div>
 
-          {/* Main Title */}
+          {/* Main Title - No Hyphen */}
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight leading-tight sm:leading-tight mb-6">
-            Hệ thống thi thử IELTS 1:1 - Cavin&apos;s English
+            Hệ thống thi thử IELTS 1:1 <span className="text-blue-600">Cavin&apos;s English</span>
           </h1>
 
           {/* Subtitle */}
@@ -57,27 +57,27 @@ export default function Home() {
             </span>
           </div>
 
-          {/* Feature Highlights */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-16 w-full max-w-2xl text-left">
-            <div className="p-4 rounded-xl border border-slate-100 bg-slate-50/50">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mb-3">
-                <Mic className="w-4 h-4" />
+          {/* Feature Highlights - Centered Icons & Text */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-16 w-full max-w-2xl text-center">
+            <div className="p-6 rounded-2xl border border-slate-100 bg-slate-50/60 flex flex-col items-center text-center hover:bg-slate-50 transition">
+              <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-3 mx-auto">
+                <Mic className="w-5 h-5" />
               </div>
               <h3 className="font-semibold text-sm text-slate-900 mb-1">Thu âm phản xạ</h3>
               <p className="text-xs text-slate-500 leading-normal">Ghi âm trực tiếp và chuyển đổi giọng nói thành văn bản chuẩn xác.</p>
             </div>
 
-            <div className="p-4 rounded-xl border border-slate-100 bg-slate-50/50">
-              <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center mb-3">
-                <Clock className="w-4 h-4" />
+            <div className="p-6 rounded-2xl border border-slate-100 bg-slate-50/60 flex flex-col items-center text-center hover:bg-slate-50 transition">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center mb-3 mx-auto">
+                <Clock className="w-5 h-5" />
               </div>
               <h3 className="font-semibold text-sm text-slate-900 mb-1">Đồng hồ chuẩn Part</h3>
               <p className="text-xs text-slate-500 leading-normal">Kiểm soát thời gian Part 1, 1 phút chuẩn bị và 2 phút Part 2.</p>
             </div>
 
-            <div className="p-4 rounded-xl border border-slate-100 bg-slate-50/50">
-              <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center mb-3">
-                <Award className="w-4 h-4" />
+            <div className="p-6 rounded-2xl border border-slate-100 bg-slate-50/60 flex flex-col items-center text-center hover:bg-slate-50 transition">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-3 mx-auto">
+                <Award className="w-5 h-5" />
               </div>
               <h3 className="font-semibold text-sm text-slate-900 mb-1">Đánh giá 4 tiêu chí</h3>
               <p className="text-xs text-slate-500 leading-normal">Phân tích Fluency, Lexical, Grammar và Pronunciation chi tiết.</p>
@@ -89,11 +89,12 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="w-full border-t border-slate-100 py-8 px-6 text-center text-xs text-slate-600 flex flex-col items-center gap-2 bg-white">
-        <p>© 2026 Cavin&apos;s English (cavinenglish2edu.com). All rights reserved.</p>
-        <p className="max-w-4xl text-[11px] text-slate-400 leading-relaxed">
-          IELTS® là thương hiệu đã đăng ký của Cambridge University Press & Assessment, IDP: IELTS Australia và British Council. Website này là hệ thống mô phỏng độc lập sử dụng phiên bản AI lõi Gemini Ultra Pro và ChatGPT Premium Max được thiết kế độc quyền cho Cavin&apos;s English.
+        <p>© 2026 Cavin&apos;s English. All rights reserved.</p>
+        <p className="max-w-4xl text-[11px] text-slate-500 leading-relaxed">
+          IELTS® là thương hiệu đã đăng ký của Cambridge University Press & Assessment, IDP: IELTS Australia và British Council. Website này là hệ thống mô phỏng độc lập sử dụng phiên bản AI lõi Gemini Ultra Pro & ChatGPT Max được thiết kế độc quyền cho Cavin&apos;s English — Hệ thống tự động cập nhật và đồng bộ ngân hàng đề thi thật Forecast hàng tuần theo thời gian thực từ hội đồng thi quốc tế.
         </p>
       </footer>
     </div>
   );
 }
+

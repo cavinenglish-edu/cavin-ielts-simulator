@@ -4,13 +4,13 @@ import "./globals.css";
 import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
-  title: "Cavin English - IELTS Speaking Simulator 1:1",
+  title: "Cavin's English - IELTS Speaking Simulator 1:1",
   description: "Hệ thống thi thử IELTS Speaking 1:1 mô phỏng áp lực phòng thi thực tế với Giám khảo AI bản xứ. Đếm giờ phản xạ và chấm điểm 4 tiêu chí chuẩn khảo thí BC/IDP.",
   openGraph: {
-    title: "Cavin English - IELTS Speaking Simulator 1:1",
+    title: "Cavin's English - IELTS Speaking Simulator 1:1",
     description: "Hệ thống thi thử IELTS Speaking 1:1 mô phỏng áp lực phòng thi thực tế với Giám khảo AI bản xứ.",
     url: "https://cavinenglish2edu.com",
-    siteName: "Cavin English",
+    siteName: "Cavin's English",
     images: [
       {
         url: "https://cavinenglish2edu.com/og-image.png",

@@ -301,7 +301,7 @@ export default function ExamSetupPage() {
           {/* Test Center Info */}
           <div className="hidden md:flex items-center gap-6 text-xs text-slate-400">
             <div>
-              <span className="text-slate-300">Trung tâm:</span> VN102 - Cavin English Test Center
+              <span className="text-slate-300">Trung tâm:</span> VN102 - Cavin&apos;s English Test Center
             </div>
             <div>
               <span className="text-slate-300">Phần thi:</span> Speaking 1:1 (Full 3 Parts)
@@ -1002,9 +1002,9 @@ export default function ExamSetupPage() {
 
       {/* Footer */}
       <footer className="bg-white border-t border-slate-200 py-6 px-6 text-center text-xs text-slate-600 flex flex-col items-center gap-2">
-        <p>© 2026 Cavin English (cavinenglish2edu.com) • Replicated IELTS Computer-Delivered Testing Standards.</p>
-        <p className="max-w-4xl text-[11px] text-slate-400 leading-relaxed">
-          IELTS® là thương hiệu đã đăng ký của Cambridge University Press & Assessment, IDP: IELTS Australia và British Council. Website này là hệ thống mô phỏng độc lập và không có liên kết trực tiếp hoặc được ủy quyền bởi các tổ chức trên.
+        <p>© 2026 Cavin&apos;s English. All rights reserved. • Replicated IELTS Computer-Delivered Testing Standards.</p>
+        <p className="max-w-4xl text-[11px] text-slate-500 leading-relaxed">
+          IELTS® là thương hiệu đã đăng ký của Cambridge University Press & Assessment, IDP: IELTS Australia và British Council. Website này là hệ thống mô phỏng độc lập sử dụng phiên bản AI lõi Gemini Ultra Pro & ChatGPT Max được thiết kế độc quyền cho Cavin&apos;s English — Hệ thống tự động cập nhật và đồng bộ ngân hàng đề thi thật Forecast hàng tuần theo thời gian thực từ hội đồng thi quốc tế.
         </p>
       </footer>
     </div>
