@@ -1,26 +1,36 @@
 {
-  "name": "temp_cavin_app",
+  "name": "tram-tin-tuc-giao-duc",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev.mjs",
+    "dev:raw": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@supabase/supabase-js": "^2.117.3",
+    "cheerio": "^1.2.0",
+    "lucide-react": "^1.53.0",
     "next": "16.4.0",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "react-error-boundary": "^6.1.6",
+    "react-hot-toast": "^2.6.1"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
+    "@types/dom-speech-recognition": "^0.0.12",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^18.0.6",
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }
