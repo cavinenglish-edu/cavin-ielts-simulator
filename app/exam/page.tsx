@@ -19,6 +19,11 @@ import {
   RotateCcw,
   Sparkles,
   Info,
+  Clock,
+  BookOpen,
+  Calendar,
+  Search,
+  X,
 } from "lucide-react";
 import { EXAM_DATA_SETS, ExamDataSet } from "@/data/exam_data";
 import toast from "react-hot-toast";
@@ -73,6 +78,9 @@ export default function ExamSetupPage() {
 
   // Step tracker: 1: Candidate Info | 2: Sound Check | 3: Mic Check | 4: Ready
   const [currentStep, setCurrentStep] = useState<number>(1);
+  const [showCandidateModal, setShowCandidateModal] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Candidate State
   const [candidateName, setCandidateName] = useState<string>("Cavin Le");
@@ -354,7 +362,7 @@ export default function ExamSetupPage() {
               >
                 {currentStep > 1 ? <CheckCircle2 className="w-5 h-5" /> : "1"}
               </div>
-              <span className="text-xs font-semibold">1. Xác thực hồ sơ</span>
+              <span className="text-xs font-semibold">1. Chọn bộ đề</span>
             </button>
 
             {/* Step 2 */}
@@ -422,106 +430,131 @@ export default function ExamSetupPage() {
           </div>
         </div>
 
-        {/* STEP 1: CANDIDATE INFORMATION */}
+        {/* STEP 1: EXAM LIBRARY */}
         {currentStep === 1 && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 max-w-2xl mx-auto">
-            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                <ShieldCheck className="w-6 h-6" />
-              </div>
+          <div className="w-full">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Xác nhận thông tin thí sinh dự thi</h2>
-                <p className="text-xs text-slate-600">Kiểm tra thông tin trước khi bắt đầu bài thi Speaking chuẩn BC/IDP</p>
+                <h2 className="text-2xl font-bold text-slate-900">Thư viện đề thi IELTS Speaking</h2>
+                <p className="text-sm text-slate-600 mt-1">Chọn một bộ đề thi (Full Mock Test) chuẩn format IDP/BC để bắt đầu luyện tập 1:1 với AI.</p>
               </div>
-            </div>
-
-            <div className="space-y-4 text-sm">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  Họ và tên thí sinh (Full Name) *
-                </label>
+              <div className="relative w-full sm:w-72">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-slate-400" />
+                </div>
                 <input
                   type="text"
-                  value={candidateName}
-                  onChange={(e) => setCandidateName(e.target.value)}
-                  placeholder="Ví dụ: NGUYEN VAN A"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium"
+                  placeholder="Tìm kiếm đề thi..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 />
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                    Số CCCD / Hộ chiếu (ID / Passport)
-                  </label>
-                  <input
-                    type="text"
-                    value={candidateId}
-                    onChange={(e) => setCandidateId(e.target.value)}
-                    placeholder="B1234567"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                    Mục tiêu Band Score (Target)
-                  </label>
-                  <select
-                    value={targetBand}
-                    onChange={(e) => setTargetBand(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium bg-white"
-                  >
-                    <option value="6.0+">Band 6.0+ (Competent)</option>
-                    <option value="6.5+">Band 6.5+ (Good Competent)</option>
-                    <option value="7.0+">Band 7.0+ (Good User)</option>
-                    <option value="7.5+">Band 7.5+ (Very Good)</option>
-                    <option value="8.0+">Band 8.0+ (Expert)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  Ngân hàng Đề thi Forecast (Question Bank 2026)
-                </label>
-                <select
-                  value={selectedExamId}
-                  onChange={(e) => setSelectedExamId(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium bg-white text-xs sm:text-sm text-slate-800"
-                >
-                  {isLoadingExams ? (
-                    <option value="random">⏳ Đang tải ngân hàng đề thi live...</option>
-                  ) : (
-                    <>
-                      <option value="random">🎲 Đề thi ngẫu nhiên (Mô phỏng bốc đề phòng thi thật IDP/BC)</option>
-                      {availableExams.map((set) => (
-                        <option key={set.id} value={set.id}>
-                          {set.title} ({set.examinerName}) {set.id.startsWith("static") ? "" : "🔥 (MỚI)"}
-                        </option>
-                      ))}
-                    </>
-                  )}
-                </select>
-              </div>
-
-              <div className="p-4 rounded-xl bg-blue-50/60 border border-blue-100 flex items-start gap-3 mt-4">
-                <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-blue-900 leading-relaxed">
-                  Số báo danh chính thức của bạn là <strong>{candidateNumber}</strong>. Điểm số và nhận xét chi tiết của Giám khảo AI sẽ được lập thành bảng điểm điện tử ngay sau khi bạn hoàn thành Part 3.
-                </p>
-              </div>
-
-              <div className="pt-6 flex justify-end">
-                <button
-                  onClick={() => setCurrentStep(2)}
-                  disabled={!candidateName.trim()}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition disabled:opacity-50 cursor-pointer"
-                >
-                  <span>Tiếp tục: Kiểm tra tai nghe</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
             </div>
+
+            {/* Filter Tabs */}
+            <div className="flex items-center gap-2 border-b border-slate-200 mb-6 pb-2 overflow-x-auto no-scrollbar">
+              <button
+                onClick={() => setActiveTab("all")}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 whitespace-nowrap transition-colors ${
+                  activeTab === "all" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Tất cả bộ đề
+              </button>
+              <button
+                onClick={() => setActiveTab("new")}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+                  activeTab === "new" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                🔥 Đề thi thật mới nhất (Actual)
+              </button>
+              <button
+                onClick={() => setActiveTab("forecast")}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+                  activeTab === "forecast" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                📚 Bộ đề dự đoán (Forecast)
+              </button>
+            </div>
+
+            {isLoadingExams ? (
+              <div className="flex flex-col items-center justify-center py-20 text-slate-500">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
+                <p>Đang tải thư viện đề thi từ máy chủ...</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Random Exam Card */}
+                <div 
+                  onClick={() => { setSelectedExamId("random"); setShowCandidateModal(true); }}
+                  className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl border border-blue-500 shadow-md hover:shadow-xl transition cursor-pointer overflow-hidden flex flex-col group text-white"
+                >
+                  <div className="p-6 flex-1 flex flex-col">
+                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center mb-4 text-white">
+                      <Sparkles className="w-6 h-6" />
+                    </div>
+                    <h3 className="font-bold text-xl mb-2">Đề thi Ngẫu Nhiên</h3>
+                    <p className="text-blue-100 text-sm mb-4 line-clamp-2">
+                      Mô phỏng trải nghiệm bốc đề ngẫu nhiên trong phòng thi thật. Hệ thống sẽ chọn 1 đề bất kỳ trong kho dữ liệu.
+                    </p>
+                    <div className="mt-auto pt-4 border-t border-blue-500/50 flex items-center justify-between">
+                      <span className="text-sm font-medium text-blue-100">Full Mock Test</span>
+                      <button className="bg-white text-blue-700 px-4 py-1.5 rounded-full font-bold text-xs shadow-sm group-hover:scale-105 transition-transform">
+                        Bốc đề ngay
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {availableExams
+                  .filter(exam => {
+                    const matchSearch = exam.title.toLowerCase().includes(searchQuery.toLowerCase());
+                    if (!matchSearch) return false;
+                    if (activeTab === "new") return !exam.id.startsWith("static");
+                    if (activeTab === "forecast") return exam.id.startsWith("static");
+                    return true;
+                  })
+                  .map((exam) => (
+                    <div 
+                      key={exam.id}
+                      onClick={() => { setSelectedExamId(exam.id); setShowCandidateModal(true); }}
+                      className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition cursor-pointer overflow-hidden flex flex-col group"
+                    >
+                      <div className="bg-slate-50 p-5 border-b border-slate-100 flex items-center justify-between">
+                        <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700">
+                          <Mic className="w-6 h-6" />
+                        </div>
+                        <span className="px-3 py-1 bg-white text-blue-700 font-bold text-[10px] uppercase tracking-wider rounded-full shadow-sm border border-slate-100">
+                          {exam.id.startsWith("static") ? "Forecast" : "Actual Test"}
+                        </span>
+                      </div>
+                      <div className="p-5 flex-1 flex flex-col">
+                        <h3 className="font-bold text-slate-900 text-base mb-3 group-hover:text-blue-600 transition line-clamp-2" title={exam.title}>
+                          {exam.title}
+                        </h3>
+                        <div className="flex items-center gap-3 text-xs text-slate-500 mb-4">
+                          <span className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-md"><BookOpen className="w-3.5 h-3.5" /> 3 Parts</span>
+                          <span className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-md"><Clock className="w-3.5 h-3.5" /> 11-14 Phút</span>
+                        </div>
+                        <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center">
+                              <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${exam.examinerName}`} alt="avatar" className="w-6 h-6" />
+                            </div>
+                            <span className="text-[11px] font-medium text-slate-600 truncate max-w-[120px]">Khảo thí: {exam.examinerName}</span>
+                          </div>
+                          <span className="text-blue-600 font-semibold text-sm group-hover:underline flex items-center gap-1">
+                            Vào thi <ChevronRight className="w-4 h-4" />
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -857,6 +890,109 @@ export default function ExamSetupPage() {
                   <Sparkles className="w-5 h-5" />
                   <span>BƯỚC VÀO PHÒNG THI 1:1 (START TEST)</span>
                   <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* MODAL: CANDIDATE INFO */}
+        {showCandidateModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]">
+              {/* Modal Header */}
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-lg">Xác thực hồ sơ dự thi</h3>
+                    <p className="text-xs text-slate-500">Bước chuẩn bị cuối cùng trước khi vào Test Room</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowCandidateModal(false)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-200 text-slate-500 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 overflow-y-auto">
+                <div className="space-y-5 text-sm">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                      Họ và tên thí sinh (Full Name) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={candidateName}
+                      onChange={(e) => setCandidateName(e.target.value)}
+                      placeholder="Ví dụ: NGUYEN VAN A"
+                      className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                        Số CCCD / Hộ chiếu
+                      </label>
+                      <input
+                        type="text"
+                        value={candidateId}
+                        onChange={(e) => setCandidateId(e.target.value)}
+                        placeholder="B1234567"
+                        className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                        Mục tiêu Band Score
+                      </label>
+                      <select
+                        value={targetBand}
+                        onChange={(e) => setTargetBand(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium bg-white"
+                      >
+                        <option value="6.0+">Band 6.0+ (Competent)</option>
+                        <option value="6.5+">Band 6.5+ (Good Competent)</option>
+                        <option value="7.0+">Band 7.0+ (Good User)</option>
+                        <option value="7.5+">Band 7.5+ (Very Good)</option>
+                        <option value="8.0+">Band 8.0+ (Expert)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-blue-50/80 border border-blue-100 flex items-start gap-3 mt-2">
+                    <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-blue-900 leading-relaxed">
+                      Số báo danh chính thức của bạn là <strong className="bg-white px-1 py-0.5 rounded shadow-sm">{candidateNumber}</strong>. Điểm số và nhận xét chi tiết của Giám khảo AI sẽ được lập thành bảng điểm điện tử IDP/BC Format ngay sau khi bạn hoàn thành Part 3.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-6 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setShowCandidateModal(false)}
+                  className="px-5 py-2.5 rounded-xl text-slate-600 font-medium hover:bg-slate-200 transition"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCandidateModal(false);
+                    setCurrentStep(2);
+                  }}
+                  disabled={!candidateName.trim()}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white font-semibold shadow-sm hover:bg-blue-700 transition disabled:opacity-50 cursor-pointer"
+                >
+                  <span>Xác nhận & Kiểm tra thiết bị</span>
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
