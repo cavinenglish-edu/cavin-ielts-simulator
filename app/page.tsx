@@ -8,9 +8,11 @@ export default function Home() {
       <header className="w-full border-b border-slate-100 bg-white/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm shadow-blue-500/20">
-              <GraduationCap className="w-5 h-5" />
-            </div>
+            <img 
+              src="/logo.png" 
+              alt="Cavin's English Logo" 
+              className="w-10 h-10 object-contain rounded-xl"
+            />
             <div>
               <span className="font-bold text-lg text-slate-900 tracking-tight">Cavin&apos;s English</span>
               <span className="text-xs text-blue-600 font-medium ml-2 px-2 py-0.5 bg-blue-50 rounded-full border border-blue-100">Simulator</span>

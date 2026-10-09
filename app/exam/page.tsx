@@ -300,8 +300,11 @@ export default function ExamSetupPage() {
 
           {/* Test Center Info */}
           <div className="hidden md:flex items-center gap-6 text-xs text-slate-400">
-            <div>
-              <span className="text-slate-300">Trung tâm:</span> VN102 - Cavin&apos;s English Test Center
+            <div className="flex items-center gap-2">
+              <img src="/logo.png" alt="Cavin's English" className="w-5 h-5 object-contain" />
+              <div>
+                <span className="text-slate-300">Trung tâm:</span> VN102 - Cavin&apos;s English Test Center
+              </div>
             </div>
             <div>
               <span className="text-slate-300">Phần thi:</span> Speaking 1:1 (Full 3 Parts)
