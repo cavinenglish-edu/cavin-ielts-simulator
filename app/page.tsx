@@ -40,8 +40,8 @@ export default function Home() {
           </h1>
 
           {/* Subtitle */}
-          <p className="text-base sm:text-lg text-slate-600 max-w-xl mb-10 leading-relaxed font-normal">
-            Mô phỏng áp lực phòng thi thực tế với giám khảo ảo AI, đếm giờ phản xạ tự động và chấm điểm phát âm trực tiếp theo 4 tiêu chí IELTS.
+          <p className="text-base sm:text-lg text-slate-600 max-w-2xl mb-10 leading-relaxed font-normal">
+            Mô phỏng áp lực phòng thi thực tế với giám khảo ảo AI Độc Quyền, chuẩn hóa quy trình luyện thi toàn diện 4 kỹ năng Nghe - Nói - Đọc - Viết theo format IDP/BC, chấm chữa chuyên sâu tức thì và bứt phá mục tiêu Band điểm.
           </p>
 
           {/* Main Centered CTA Button */}
