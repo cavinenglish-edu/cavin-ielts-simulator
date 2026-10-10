@@ -580,8 +580,8 @@ export default function ExamSetupPage() {
             {/* VIP FOMO HERO BANNER */}
             <div className="mb-8 p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white shadow-xl border border-blue-500/30 relative overflow-hidden">
               <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-                <div className="max-w-2xl">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+                <div className="max-w-3xl flex-1">
                   <div className="flex flex-wrap items-center gap-2 mb-2">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold bg-amber-400 text-slate-950 uppercase tracking-wider shadow">
                       <Sparkles className="w-3.5 h-3.5" /> Đặc Quyền Khảo Thí VIP
@@ -590,15 +590,15 @@ export default function ExamSetupPage() {
                       Khảo thí 1:1 • BC / IDP Standards
                     </span>
                   </div>
-                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white mb-2">
-                    Phòng Luyện Thi IELTS 4 Kỹ Năng Cavin&apos;s English
+                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white mb-2 leading-snug">
+                    Phòng Luyện Thi IELTS 4 Kỹ Năng <span className="whitespace-nowrap text-amber-300">Cavin&apos;s English</span>
                   </h1>
                   <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-normal">
                     Toàn bộ thư viện đề thi thật Actual &amp; Forecast 2026 bên dưới mở khóa trực tiếp thông qua <strong>Mã PIN 4 số</strong> (Dành riêng cho học sinh đủ combo 3 lớp: Ngữ Pháp + Nghe Nói + Đọc Viết) hoặc <strong>Mã PIN 6 số</strong> (Khách kích hoạt Online).
                   </p>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="shrink-0 flex items-center">
                   {candidateSession ? (
                     <div className="bg-white/10 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/20">
                       <div className="text-[11px] text-emerald-400 font-bold flex items-center gap-1.5">
@@ -611,11 +611,11 @@ export default function ExamSetupPage() {
                   ) : (
                     <button
                       onClick={() => setShowAuthModal(true)}
-                      className="inline-flex items-center justify-center gap-2 px-7 py-4 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 active:scale-98 text-slate-950 font-black text-sm shadow-xl shadow-amber-400/20 transition-all cursor-pointer"
+                      className="whitespace-nowrap inline-flex items-center justify-center gap-3 px-8 py-4 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 active:scale-98 text-slate-950 font-black text-sm shadow-xl shadow-amber-400/20 transition-all cursor-pointer"
                     >
-                      <Rocket className="w-4 h-4" />
-                      <span>BẮT ĐẦU THI THỬ</span>
-                      <ChevronRight className="w-4 h-4" />
+                      <Rocket className="w-4 h-4 shrink-0" />
+                      <span className="whitespace-nowrap tracking-wide">BẮT ĐẦU THI THỬ</span>
+                      <ChevronRight className="w-4 h-4 shrink-0" />
                     </button>
                   )}
                 </div>
