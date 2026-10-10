@@ -177,7 +177,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       status: "NOT_FOUND",
       message: "Mã PIN bảo mật không chính xác hoặc chưa được kích hoạt trên hệ thống dữ liệu của Cavin's English.",
-      detail: "Vui lòng kiểm tra lại mã PIN 4 số (Học sinh trung tâm) hoặc mã PIN 6 số (Khách kích hoạt Online). Nếu bạn cần hỗ trợ, vui lòng liên hệ Admin / Thầy Cavin qua Zalo."
+      detail: "Vui lòng kiểm tra lại mã PIN 4 số (Học sinh trung tâm) hoặc mã PIN 6 số (Khách kích hoạt Online). Nếu bạn cần hỗ trợ, vui lòng liên hệ Zalo Admin (0969.343.625)."
     }, { status: 404 });
 
   } catch (error) {
