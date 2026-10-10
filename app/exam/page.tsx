@@ -24,10 +24,14 @@ import {
   Calendar,
   Search,
   X,
+  KeyRound,
+  LogOut,
+  Lock,
 } from "lucide-react";
 import { EXAM_DATA_SETS, ExamDataSet } from "@/data/exam_data";
 import toast from "react-hot-toast";
 import { supabase } from "@/lib/supabase";
+import ExamAuthModal, { CandidateSession } from "@/components/ExamAuthModal";
 
 export default function ExamSetupPage() {
   const router = useRouter();
@@ -82,16 +86,56 @@ export default function ExamSetupPage() {
   const [activeTab, setActiveTab] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
-  // Candidate State
-  const [candidateName, setCandidateName] = useState<string>("Cavin Le");
-  const [candidateId, setCandidateId] = useState<string>("B1298492");
+  // Candidate State & PIN Auth Gate
+  const [candidateSession, setCandidateSession] = useState<CandidateSession | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [candidateName, setCandidateName] = useState<string>("");
+  const [candidateId, setCandidateId] = useState<string>("");
   const [targetBand, setTargetBand] = useState<string>("7.5+");
   const [selectedExamId, setSelectedExamId] = useState<string>("random");
   const [candidateNumber, setCandidateNumber] = useState<string>("VN102-849201");
 
   useEffect(() => {
     setCandidateNumber("VN102-" + Math.floor(100000 + Math.random() * 900000));
+    try {
+      const saved = sessionStorage.getItem("cavin_candidate_session");
+      if (saved) {
+        const parsed: CandidateSession = JSON.parse(saved);
+        if (parsed && parsed.isQualified) {
+          setCandidateSession(parsed);
+          setCandidateName(parsed.name || "");
+          if (parsed.phone) setCandidateId(parsed.phone);
+        }
+      }
+    } catch (_) {}
   }, []);
+
+  const handleExamSelect = (examId: string) => {
+    setSelectedExamId(examId);
+    if (!candidateSession || !candidateSession.isQualified) {
+      setShowAuthModal(true);
+    } else {
+      setShowCandidateModal(true);
+    }
+  };
+
+  const handleAuthSuccess = (candidate: CandidateSession) => {
+    setCandidateSession(candidate);
+    setCandidateName(candidate.name);
+    if (candidate.phone) setCandidateId(candidate.phone);
+    toast.success(`Xác thực thành công! Chào mừng thí sinh ${candidate.name}`, { duration: 4000 });
+    setShowCandidateModal(true);
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem("cavin_candidate_session");
+    sessionStorage.removeItem("ielts_candidate");
+    setCandidateSession(null);
+    setCandidateName("");
+    setCandidateId("");
+    setCurrentStep(1);
+    toast.success("Đã đăng xuất tài khoản thi thử.");
+  };
 
   // Sound Check State
   const [isPlayingSound, setIsPlayingSound] = useState<boolean>(false);
@@ -298,17 +342,26 @@ export default function ExamSetupPage() {
             </div>
           </div>
 
-          {/* Test Center Info */}
-          <div className="hidden md:flex items-center gap-6 text-xs text-slate-400">
-            <div className="flex items-center gap-2">
+          {/* Test Center Info & Auth Status */}
+          <div className="flex items-center gap-4 text-xs">
+            <div className="hidden md:flex items-center gap-2 text-slate-300">
               <img src="/logo.png" alt="Cavin's English" className="w-5 h-5 object-contain" />
-              <div>
-                <span className="text-slate-300">Trung tâm:</span> VN102 - Cavin&apos;s English Test Center
+              <span>VN102 - Cavin&apos;s English Test Center</span>
+            </div>
+            {candidateSession ? (
+              <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 px-3 py-1 rounded-full text-slate-200">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="font-semibold truncate max-w-[150px]">{candidateSession.name}</span>
               </div>
-            </div>
-            <div>
-              <span className="text-slate-300">Phần thi:</span> Speaking 1:1 (Full 3 Parts)
-            </div>
+            ) : (
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-3 py-1.5 rounded-full text-xs transition cursor-pointer flex items-center gap-1.5 shadow-sm"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>Đăng nhập PIN</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -316,26 +369,56 @@ export default function ExamSetupPage() {
       {/* Candidate Identification Strip (Chuẩn Khảo Thí) */}
       <div className="bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-6xl mx-auto px-6 py-3 flex flex-wrap items-center justify-between gap-4 text-xs">
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center gap-6">
             <div>
-              <span className="text-slate-600">Thí sinh:</span>{" "}
-              <strong className="text-slate-900 font-semibold uppercase">{candidateName || "---"}</strong>
+              <span className="text-slate-500">Thí sinh:</span>{" "}
+              {candidateSession ? (
+                <strong className="text-slate-900 font-bold uppercase text-sm">
+                  {candidateSession.name}
+                  {candidateSession.engName ? ` (${candidateSession.engName})` : ""}
+                </strong>
+              ) : (
+                <span className="text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                  CHƯA ĐĂNG NHẬP
+                </span>
+              )}
             </div>
             <div>
-              <span className="text-slate-600">Số báo danh (Candidate No):</span>{" "}
+              <span className="text-slate-500">Số báo danh (Candidate No):</span>{" "}
               <strong className="font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                 {candidateNumber}
               </strong>
             </div>
             <div>
-              <span className="text-slate-600">Số ID/Passport:</span>{" "}
-              <strong className="font-mono text-slate-800">{candidateId || "---"}</strong>
+              <span className="text-slate-500">Phân hạng:</span>{" "}
+              {candidateSession ? (
+                <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  {candidateSession.userType === "student" ? "Học viên VIP (Đủ 3 môn)" : "Khách Online VIP"}
+                </span>
+              ) : (
+                <span className="text-slate-500 font-medium">IELTS Computer-Delivered</span>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <ShieldCheck className="w-3.5 h-3.5" /> Hệ thống bảo mật phòng thi
-            </span>
+          <div className="flex items-center gap-3">
+            {candidateSession ? (
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition cursor-pointer"
+                title="Đăng xuất khỏi tài khoản thi thử"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Đổi tài khoản / Thoát</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition cursor-pointer"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>Nhập Mã PIN Dự Thi</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -436,6 +519,51 @@ export default function ExamSetupPage() {
         {/* STEP 1: EXAM LIBRARY */}
         {currentStep === 1 && (
           <div className="w-full">
+            {/* VIP FOMO HERO BANNER */}
+            <div className="mb-8 p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white shadow-xl border border-blue-500/30 relative overflow-hidden">
+              <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                <div className="max-w-2xl">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold bg-amber-400 text-slate-950 uppercase tracking-wider shadow">
+                      <Sparkles className="w-3.5 h-3.5" /> Đặc Quyền Khảo Thí VIP
+                    </span>
+                    <span className="text-xs text-blue-200 font-medium">
+                      Khảo thí 1:1 • BC / IDP Standards
+                    </span>
+                  </div>
+                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white mb-2">
+                    Phòng Luyện Thi IELTS 4 Kỹ Năng Cavin&apos;s English
+                  </h1>
+                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-normal">
+                    Toàn bộ thư viện đề thi thật Actual &amp; Forecast 2026 bên dưới mở khóa trực tiếp thông qua <strong>Mã PIN 4 số</strong> (Dành riêng cho học sinh đủ combo 3 lớp: Ngữ Pháp + Nghe Nói + Đọc Viết) hoặc <strong>Mã PIN 6 số</strong> (Khách kích hoạt Online).
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                  {candidateSession ? (
+                    <div className="bg-white/10 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/20">
+                      <div className="text-[11px] text-emerald-400 font-bold flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Thí sinh VIP đã xác thực
+                      </div>
+                      <div className="text-sm font-extrabold text-white truncate max-w-[180px]">
+                        {candidateSession.name}
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowAuthModal(true)}
+                      className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 active:scale-98 text-slate-950 font-black text-sm shadow-xl shadow-amber-400/20 transition-all cursor-pointer"
+                    >
+                      <KeyRound className="w-4 h-4" />
+                      <span>BẮT ĐẦU THI THỬ (MÃ PIN)</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-slate-900">Thư viện đề thi IELTS Speaking</h2>
@@ -492,7 +620,7 @@ export default function ExamSetupPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* Random Exam Card */}
                 <div 
-                  onClick={() => { setSelectedExamId("random"); setShowCandidateModal(true); }}
+                  onClick={() => handleExamSelect("random")}
                   className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl border border-blue-500 shadow-md hover:shadow-xl transition cursor-pointer overflow-hidden flex flex-col group text-white"
                 >
                   <div className="p-6 flex-1 flex flex-col">
@@ -523,7 +651,7 @@ export default function ExamSetupPage() {
                   .map((exam) => (
                     <div 
                       key={exam.id}
-                      onClick={() => { setSelectedExamId(exam.id); setShowCandidateModal(true); }}
+                      onClick={() => handleExamSelect(exam.id)}
                       className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition cursor-pointer overflow-hidden flex flex-col group"
                     >
                       <div className="bg-slate-50 p-5 border-b border-slate-100 flex items-center justify-between">
@@ -988,6 +1116,18 @@ export default function ExamSetupPage() {
                 </button>
                 <button
                   onClick={() => {
+                    if (typeof window !== "undefined") {
+                      sessionStorage.setItem(
+                        "ielts_candidate",
+                        JSON.stringify({
+                          name: candidateName,
+                          id: candidateId,
+                          number: candidateNumber,
+                          target: targetBand,
+                          selectedExamId: selectedExamId,
+                        })
+                      );
+                    }
                     setShowCandidateModal(false);
                     setCurrentStep(2);
                   }}
@@ -1001,6 +1141,18 @@ export default function ExamSetupPage() {
             </div>
           </div>
         )}
+
+        {/* MODAL: EXAM AUTHENTICATION GATE (PIN VERIFICATION) */}
+        <ExamAuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={handleAuthSuccess}
+          selectedExamTitle={
+            selectedExamId === "random"
+              ? "Đề thi Ngẫu Nhiên (Random Mock Test)"
+              : availableExams.find((e) => e.id === selectedExamId)?.title
+          }
+        />
       </main>
 
       {/* Footer */}

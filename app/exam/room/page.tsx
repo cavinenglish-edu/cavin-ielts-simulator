@@ -150,6 +150,13 @@ export default function ExamRoomPage() {
     async function initExamData() {
       if (typeof window === "undefined") return;
       
+      const authSession = sessionStorage.getItem("cavin_candidate_session");
+      if (!authSession) {
+        toast.error("Vui lòng xác thực mã PIN bảo mật trước khi vào phòng thi.");
+        router.replace("/exam");
+        return;
+      }
+
       const stored = sessionStorage.getItem("ielts_candidate");
       let chosenData = EXAM_DATA_SETS[0];
 
