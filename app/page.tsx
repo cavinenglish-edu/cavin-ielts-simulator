@@ -85,8 +85,8 @@ export default function Home() {
               <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-3 mx-auto">
                 <Headphones className="w-5 h-5" />
               </div>
-              <h3 className="font-bold text-sm text-slate-900 mb-1">Nghe Khảo Thí</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">Audio chuẩn giọng bản xứ Anh - Úc - Mỹ, trắc nghiệm & điền từ format IDP/BC.</p>
+              <h3 className="font-bold text-sm text-slate-900 mb-1">Luyện Nghe Đề Thật</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">Audio chuẩn giọng bản xứ Anh - Úc - Mỹ, trắc nghiệm &amp; điền từ format IDP/BC.</p>
             </div>
 
             {/* Reading */}
@@ -94,7 +94,7 @@ export default function Home() {
               <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center mb-3 mx-auto">
                 <BookOpenCheck className="w-5 h-5" />
               </div>
-              <h3 className="font-bold text-sm text-slate-900 mb-1">Đọc Học Thuật</h3>
+              <h3 className="font-bold text-sm text-slate-900 mb-1">Đọc Hiểu Học Thuật</h3>
               <p className="text-xs text-slate-500 leading-relaxed">Giao diện chia đôi màn hình chuẩn thi máy, highlight từ khóa và chấm điểm tức thì.</p>
             </div>
 
@@ -103,8 +103,8 @@ export default function Home() {
               <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center mb-3 mx-auto">
                 <PenTool className="w-5 h-5" />
               </div>
-              <h3 className="font-bold text-sm text-slate-900 mb-1">Viết Task 1 & 2</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">Bộ gõ trực tiếp, đếm từ thời gian thực, AI phân tích cấu trúc bài luận & ngữ pháp.</p>
+              <h3 className="font-bold text-sm text-slate-900 mb-1">Viết Luận Task 1 &amp; 2</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">Bộ gõ trực tiếp, đếm từ thời gian thực, AI phân tích cấu trúc bài luận &amp; ngữ pháp.</p>
             </div>
 
             {/* Speaking */}
@@ -112,8 +112,8 @@ export default function Home() {
               <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-3 mx-auto">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <h3 className="font-bold text-sm text-slate-900 mb-1">Nói 1:1 Khảo Thí</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">Phỏng vấn phản xạ 3 Parts với Giám khảo AI bản xứ, chấm chuẩn 4 tiêu chí TRF.</p>
+              <h3 className="font-bold text-sm text-slate-900 mb-1">Nói Phản Xạ 1:1</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">Phỏng vấn 3 Parts với Giám khảo ảo AI bản xứ, chấm chuẩn 4 tiêu chí TRF.</p>
             </div>
           </div>
 
