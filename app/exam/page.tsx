@@ -25,6 +25,7 @@ import {
   Search,
   X,
   KeyRound,
+  Rocket,
   LogOut,
   Lock,
 } from "lucide-react";
@@ -610,10 +611,10 @@ export default function ExamSetupPage() {
                   ) : (
                     <button
                       onClick={() => setShowAuthModal(true)}
-                      className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 active:scale-98 text-slate-950 font-black text-sm shadow-xl shadow-amber-400/20 transition-all cursor-pointer"
+                      className="inline-flex items-center justify-center gap-2 px-7 py-4 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 active:scale-98 text-slate-950 font-black text-sm shadow-xl shadow-amber-400/20 transition-all cursor-pointer"
                     >
-                      <KeyRound className="w-4 h-4" />
-                      <span>BẮT ĐẦU THI THỬ (MÃ PIN)</span>
+                      <Rocket className="w-4 h-4" />
+                      <span>BẮT ĐẦU THI THỬ</span>
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   )}
