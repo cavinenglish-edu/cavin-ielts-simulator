@@ -54,29 +54,50 @@ export default function ExamSetupPage() {
           .eq("status", "published")
           .order("created_at", { ascending: false });
 
-        if (error) throw error;
-        
-        if (data && data.length > 0) {
-          // Map data to match EXAM_DATA_SETS structure just for the dropdown
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const formattedData: any[] = data.map(dbExam => ({
-            id: dbExam.id,
-            title: dbExam.title,
-            examinerName: dbExam.examiner_name,
-            examinerVoice: "en-GB-Standard-B", // default fallback
-            examinerRole: "Senior IELTS Examiner",
-            examinerAvatar: "",
-          }));
-          
-          setAvailableExams([...formattedData, ...EXAM_DATA_SETS] as ExamDataSet[]);
+        if (!error && data && data.length > 0) {
+          // De-duplicate with local EXAM_DATA_SETS
+          const existingIds = new Set(data.map((d) => d.id));
+          const localRemaining = EXAM_DATA_SETS.filter((item) => !existingIds.has(item.id));
+
+          const formattedData = data.map((dbExam) => {
+            const localMatch = EXAM_DATA_SETS.find((l) => l.id === dbExam.id);
+            if (localMatch) return localMatch;
+            return {
+              id: dbExam.id,
+              title: dbExam.title,
+              category: "IELTS Actual Test",
+              season: "Forecast Quý 3-4 / 2026",
+              examinerName: dbExam.examiner_name || "Mr. David Harrison",
+              examinerVoice: "en-GB" as const,
+              examinerRole: "Senior IELTS Examiner",
+              part1: {
+                welcome: "Good afternoon. Welcome to the IELTS Speaking test.",
+                questions: [],
+              },
+              part2: {
+                id: "p2",
+                topicTitle: dbExam.title,
+                taskCardPrompt: "Describe a memorable experience.",
+                bulletPoints: ["When it happened", "Where you were", "What happened", "And explain why it was memorable"],
+                prepTimeSeconds: 60,
+                speakTimeSeconds: 120,
+              },
+              part3: {
+                topicIntro: "Let's discuss this topic further.",
+                questions: [],
+              },
+            };
+          });
+
+          setAvailableExams([...formattedData, ...localRemaining]);
         }
       } catch (err) {
-        console.error("Supabase fetch error:", err);
+        console.warn("Supabase exams notice:", err);
       } finally {
         setIsLoadingExams(false);
       }
     }
-    
+
     fetchExams();
   }, []);
 
