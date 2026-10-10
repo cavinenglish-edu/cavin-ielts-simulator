@@ -212,21 +212,21 @@ export default function ExamAuthModal({
             </div>
 
             {/* Action Buttons */}
-            <div className="w-full flex flex-col sm:flex-row gap-3">
+            <div className="w-full flex flex-col gap-2.5">
               <a
                 href="https://zalo.me/0969343625"
                 target="_blank"
                 rel="noreferrer"
-                className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md shadow-blue-600/20 transition cursor-pointer"
+                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md shadow-blue-600/20 transition cursor-pointer whitespace-nowrap"
               >
-                <MessageCircle className="w-4 h-4" />
-                <span>Nâng cấp lộ trình (Zalo Admin)</span>
-                <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                <MessageCircle className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">Nâng cấp lộ trình (Zalo Admin)</span>
+                <ExternalLink className="w-3.5 h-3.5 shrink-0 opacity-80" />
               </a>
               <button
                 type="button"
                 onClick={handleReset}
-                className="px-5 py-3 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-semibold text-sm transition cursor-pointer"
+                className="w-full py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold text-sm transition cursor-pointer"
               >
                 Thử mã PIN khác
               </button>
@@ -247,11 +247,11 @@ export default function ExamAuthModal({
               {errorData.message || errorData.detail}
             </p>
 
-            <div className="w-full flex flex-col sm:flex-row gap-3">
+            <div className="w-full flex flex-col gap-2.5">
               <button
                 type="button"
                 onClick={handleReset}
-                className="flex-1 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm transition cursor-pointer"
+                className="w-full py-3 px-5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md shadow-blue-600/20 transition cursor-pointer"
               >
                 Nhập lại mã PIN
               </button>
@@ -259,10 +259,11 @@ export default function ExamAuthModal({
                 href="https://zalo.me/0969343625"
                 target="_blank"
                 rel="noreferrer"
-                className="px-5 py-3 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-semibold text-sm transition flex items-center justify-center gap-1.5"
+                className="w-full py-2.5 px-5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-sm transition flex items-center justify-center gap-2 whitespace-nowrap"
               >
-                <MessageCircle className="w-4 h-4 text-blue-600" />
-                <span>Hỗ trợ qua Zalo Admin</span>
+                <MessageCircle className="w-4 h-4 text-blue-600 shrink-0" />
+                <span className="whitespace-nowrap">Hỗ trợ qua Zalo Admin</span>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               </a>
             </div>
           </div>
