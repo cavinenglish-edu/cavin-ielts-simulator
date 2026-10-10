@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Cavin's English - IELTS Computer-Delivered Simulator 1:1
 
-## Getting Started
+Hệ thống thi thử IELTS Speaking 1:1 mô phỏng chính xác áp lực phòng thi thực tế chuẩn khảo thí quốc tế (IDP & British Council), tích hợp Giám khảo AI bản xứ, đồng hồ phản xạ Part 1/2/3 và bộ máy chấm chữa phân tích 4 tiêu chí chuyên sâu.
 
-First, run the development server:
+- **Website Production:** [https://ielts.cavinenglish2edu.com](https://ielts.cavinenglish2edu.com)
+- **Hệ thống chính:** [https://cavinenglish2edu.com](https://cavinenglish2edu.com)
+- **GitHub Repository:** [https://github.com/cavinenglish-edu/cavin-ielts-simulator](https://github.com/cavinenglish-edu/cavin-ielts-simulator)
 
+---
+
+## 🚀 Hướng Dẫn Thiết Lập Trên Máy Mới (Desktop)
+
+### 1. Clone repository về máy
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/cavinenglish-edu/cavin-ielts-simulator.git
+cd cavin-ielts-simulator
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Cài đặt thư viện dependencies
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Cấu hình biến môi trường (`.env.local`)
+Tạo file `.env.local` ở thư mục gốc của dự án với nội dung:
+```env
+NEXT_PUBLIC_SUPABASE_URL="https://httzzrkhvxnkqhbzlefz.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0dHp6cmtodnhua3FoYnpsZWZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NDEwMzgsImV4cCI6MjEwNzExNzAzOH0.3p7XSmT0f7Neu5JolfwNJAHDnlgeejA8xTZLA5Fqz60"
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 4. Khởi chạy môi trường phát triển (Local Development)
+```bash
+npm run dev
+```
+Mở trình duyệt truy cập: [http://localhost:3000](http://localhost:3000)
 
-## Learn More
+### 5. Cào đề thi thật & Forecast tự động lên Database
+Nếu muốn chạy tool cào và tổng hợp ngân hàng đề thi AI lên Supabase:
+```bash
+npx ts-node scripts/scrape_forecast.ts
+```
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🛠️ Công Nghệ Lõi (Tech Stack)
+- **Framework:** Next.js 16 (Turbopack) & React 19
+- **Ngôn ngữ:** TypeScript (Strict typing)
+- **Styling:** Tailwind CSS
+- **Database & Realtime:** Supabase PostgreSQL
+- **AI Core:** Google Gemini & OpenAI Audio APIs
+- **Deploy & CI/CD:** Vercel (Auto Deploy từ nhánh `master`)
