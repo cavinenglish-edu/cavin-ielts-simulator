@@ -105,44 +105,124 @@ export default function ExamRoomPage() {
   const animFrameRef = useRef<number | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const currentAnswerStartRef = useRef<number>(0);
+  const examinerAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Helper: Examiner speaks text using Web Speech API TTS
+  // Helper: Map examiner profile to authentic Native Neural Examiner Voice
+  const resolveExaminerVoice = (dataSet?: ExamDataSet): string => {
+    const targetData = dataSet || currentExamData;
+    const name = (targetData?.examinerName || "").toLowerCase();
+    const role = (targetData?.examinerRole || "").toLowerCase();
+    const voice = (targetData?.examinerVoice || "").toLowerCase();
+
+    // Australian IDP Examiners (e.g. Sarah Jenkins, Natasha, William)
+    if (name.includes("sarah") || name.includes("natasha") || voice.includes("au") || role.includes("idp")) {
+      return "en-AU-NatashaNeural";
+    }
+    if (name.includes("william")) {
+      return "en-AU-WilliamMultilingualNeural";
+    }
+    // British Female Examiners (e.g. Emma Watson-Taylor, Sonia)
+    if (name.includes("emma") || name.includes("sonia") || name.includes("ms.") || name.includes("mrs.")) {
+      return "en-GB-SoniaNeural";
+    }
+    // British Male Examiners (e.g. Dr. James Campbell, Thomas)
+    if (name.includes("james") || name.includes("thomas") || name.includes("dr.")) {
+      return "en-GB-ThomasNeural";
+    }
+    // Default Senior British Council Examiner (Mr. David Harrison / Ryan)
+    return "en-GB-RyanNeural";
+  };
+
+  // Helper: Preload next question audio silently into browser cache
+  const preloadAudio = (text: string, voiceName: string) => {
+    if (!text || typeof window === "undefined") return;
+    try {
+      const audioUrl = `/api/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voiceName)}`;
+      const preloadTag = new Audio();
+      preloadTag.preload = "auto";
+      preloadTag.src = audioUrl;
+    } catch {
+      // ignore
+    }
+  };
+
+  // Helper: Examiner speaks text using Studio-Grade Native Neural TTS (with resilient fallback)
   const speakExaminerPrompt = (text: string, dataSet?: ExamDataSet, onFinish?: () => void) => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+    if (!text || typeof window === "undefined") {
       if (onFinish) onFinish();
       return;
     }
 
-    const targetData = dataSet || currentExamData;
-    window.speechSynthesis.cancel();
+    // Stop any existing examiner speech
+    if (examinerAudioRef.current) {
+      examinerAudioRef.current.pause();
+      examinerAudioRef.current.currentTime = 0;
+      examinerAudioRef.current = null;
+    }
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+
     setExaminerSpeechText(text);
     setIsExaminerSpeaking(true);
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = targetData.examinerVoice || "en-GB";
-    utterance.rate = 0.95;
-    utterance.pitch = 1.0;
+    const targetData = dataSet || currentExamData;
+    const voiceName = resolveExaminerVoice(targetData);
+    const audioUrl = `/api/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voiceName)}`;
 
-    const voices = window.speechSynthesis.getVoices();
-    const targetVoice =
-      voices.find((v) => v.lang.toLowerCase().includes((targetData.examinerVoice || "en-GB").toLowerCase())) ||
-      voices.find((v) => v.lang.includes("GB") || v.name.includes("UK") || v.name.includes("British")) ||
-      voices.find((v) => v.lang.startsWith("en"));
-    if (targetVoice) {
-      utterance.voice = targetVoice;
+    // Fallback handler if network or audio decode fails
+    const fallbackToSpeechSynthesis = () => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = "en-GB";
+        utterance.rate = 0.95;
+        utterance.pitch = 1.0;
+
+        const voices = window.speechSynthesis.getVoices();
+        const ukVoice =
+          voices.find((v) => v.lang.includes("GB") || v.name.includes("UK") || v.name.includes("British")) ||
+          voices.find((v) => v.lang.startsWith("en"));
+        if (ukVoice) utterance.voice = ukVoice;
+
+        utterance.onend = () => {
+          setIsExaminerSpeaking(false);
+          if (onFinish) onFinish();
+        };
+        utterance.onerror = () => {
+          setIsExaminerSpeaking(false);
+          if (onFinish) onFinish();
+        };
+        window.speechSynthesis.speak(utterance);
+      } else {
+        setIsExaminerSpeaking(false);
+        if (onFinish) onFinish();
+      }
+    };
+
+    try {
+      const audio = new Audio(audioUrl);
+      examinerAudioRef.current = audio;
+
+      audio.onended = () => {
+        setIsExaminerSpeaking(false);
+        examinerAudioRef.current = null;
+        if (onFinish) onFinish();
+      };
+
+      audio.onerror = () => {
+        console.warn("Neural TTS streaming error, falling back to Web Speech API");
+        fallbackToSpeechSynthesis();
+      };
+
+      audio.play().catch((err) => {
+        console.warn("Audio autoplay policy or playback error, falling back:", err);
+        fallbackToSpeechSynthesis();
+      });
+    } catch (e) {
+      console.error("Audio constructor error:", e);
+      fallbackToSpeechSynthesis();
     }
-
-    utterance.onend = () => {
-      setIsExaminerSpeaking(false);
-      if (onFinish) onFinish();
-    };
-
-    utterance.onerror = () => {
-      setIsExaminerSpeaking(false);
-      if (onFinish) onFinish();
-    };
-
-    window.speechSynthesis.speak(utterance);
   };
 
   // Load candidate info & Forecast Set on mount
@@ -311,6 +391,10 @@ export default function ExamRoomPage() {
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         window.speechSynthesis.cancel();
       }
+      if (examinerAudioRef.current) {
+        examinerAudioRef.current.pause();
+        examinerAudioRef.current = null;
+      }
     };
   }, []);
 
@@ -423,12 +507,18 @@ export default function ExamRoomPage() {
 
   // State Machine Controller: Advance flow
   const advanceToNextStep = () => {
+    const voiceName = resolveExaminerVoice(currentExamData);
+
     if (phase === "p1_welcome") {
       setPhase("p1_questions");
       setCurrentQuestionIndex(0);
       const firstQ = currentExamData.part1.questions[0];
       speakExaminerPrompt(firstQ.question, currentExamData, () => {
         startCandidateRecording(firstQ.recommendedDurationSeconds);
+        // Preload next question while candidate speaks
+        if (currentExamData.part1.questions[1]) {
+          preloadAudio(currentExamData.part1.questions[1].question, voiceName);
+        }
       });
     } else if (phase === "p1_questions") {
       const nextIndex = currentQuestionIndex + 1;
@@ -437,6 +527,15 @@ export default function ExamRoomPage() {
         const nextQ = currentExamData.part1.questions[nextIndex];
         speakExaminerPrompt(nextQ.question, currentExamData, () => {
           startCandidateRecording(nextQ.recommendedDurationSeconds);
+          // Preload upcoming prompt
+          if (nextIndex + 1 < currentExamData.part1.questions.length) {
+            preloadAudio(currentExamData.part1.questions[nextIndex + 1].question, voiceName);
+          } else {
+            preloadAudio(
+              "Thank you. Now, in Part 2, I am going to give you a topic, and I'd like you to talk about it for one to two minutes. Before you talk, you will have one minute to think about what you are going to say. You can make some notes if you wish. Here is your topic card.",
+              voiceName
+            );
+          }
         });
       } else {
         // Part 1 complete -> Part 2 Intro
@@ -454,6 +553,11 @@ export default function ExamRoomPage() {
         "Your one minute preparation is up. Remember, you have one to two minutes for this. Don't worry if I stop you. Please begin speaking now.";
       speakExaminerPrompt(speakPrompt, currentExamData, () => {
         startCandidateRecording(currentExamData.part2.speakTimeSeconds);
+        // Preload Part 3 intro while candidate gives 2-minute talk
+        preloadAudio(currentExamData.part3.topicIntro, voiceName);
+        if (currentExamData.part3.questions[0]) {
+          preloadAudio(currentExamData.part3.questions[0].question, voiceName);
+        }
       });
     } else if (phase === "p2_speak") {
       // Part 2 complete -> Part 3 Intro
@@ -464,6 +568,9 @@ export default function ExamRoomPage() {
         const firstP3Q = currentExamData.part3.questions[0];
         speakExaminerPrompt(firstP3Q.question, currentExamData, () => {
           startCandidateRecording(firstP3Q.recommendedDurationSeconds);
+          if (currentExamData.part3.questions[1]) {
+            preloadAudio(currentExamData.part3.questions[1].question, voiceName);
+          }
         });
       });
     } else if (phase === "p3_questions") {
@@ -473,6 +580,14 @@ export default function ExamRoomPage() {
         const nextQ = currentExamData.part3.questions[nextIndex];
         speakExaminerPrompt(nextQ.question, currentExamData, () => {
           startCandidateRecording(nextQ.recommendedDurationSeconds);
+          if (nextIndex + 1 < currentExamData.part3.questions.length) {
+            preloadAudio(currentExamData.part3.questions[nextIndex + 1].question, voiceName);
+          } else {
+            preloadAudio(
+              "Thank you very much. That is the end of the Speaking test. Your responses have been recorded and are now ready to be assessed according to the official IELTS criteria.",
+              voiceName
+            );
+          }
         });
       } else {
         // Exam Finished!

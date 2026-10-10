@@ -162,6 +162,7 @@ export default function ExamSetupPage() {
   const audioChunksRef = useRef<Blob[]>([]);
   const animFrameRef = useRef<number | null>(null);
   const audioPlaybackRef = useRef<HTMLAudioElement | null>(null);
+  const soundCheckAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -175,47 +176,82 @@ export default function ExamSetupPage() {
       if (animFrameRef.current) {
         cancelAnimationFrame(animFrameRef.current);
       }
+      if (soundCheckAudioRef.current) {
+        soundCheckAudioRef.current.pause();
+        soundCheckAudioRef.current = null;
+      }
     };
   }, []);
 
-  // Handler: Play Examiner Voice Sample (Sound Check)
+  // Handler: Play Examiner Voice Sample (Sound Check) using Native British Examiner Voice
   const handlePlaySoundCheck = () => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      alert("Trình duyệt không hỗ trợ tổng hợp giọng nói.");
-      return;
-    }
-
     if (isPlayingSound) {
-      window.speechSynthesis.cancel();
+      if (soundCheckAudioRef.current) {
+        soundCheckAudioRef.current.pause();
+        soundCheckAudioRef.current.currentTime = 0;
+      }
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
       setIsPlayingSound(false);
       return;
     }
 
-    window.speechSynthesis.cancel();
     const text =
       "Hello. This is the official IELTS Speaking sound check. If you can hear this instruction clearly through your headphones, your audio output is configured correctly. You may proceed to the microphone test.";
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "en-GB";
-    utterance.volume = soundVolume / 100;
-    utterance.rate = 0.95;
 
-    // Pick British or English voice if available
-    const voices = window.speechSynthesis.getVoices();
-    const ukVoice =
-      voices.find((v) => v.lang.includes("GB") || v.name.includes("UK") || v.name.includes("British")) ||
-      voices.find((v) => v.lang.startsWith("en"));
-    if (ukVoice) {
-      utterance.voice = ukVoice;
+    setIsPlayingSound(true);
+
+    if (soundCheckAudioRef.current) {
+      soundCheckAudioRef.current.pause();
+      soundCheckAudioRef.current.currentTime = 0;
+    }
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
     }
 
-    utterance.onstart = () => setIsPlayingSound(true);
-    utterance.onend = () => {
-      setIsPlayingSound(false);
-      setSoundVerified(true);
-    };
-    utterance.onerror = () => setIsPlayingSound(false);
+    try {
+      const audioUrl = `/api/tts?text=${encodeURIComponent(text)}&voice=en-GB-RyanNeural`;
+      const audio = new Audio(audioUrl);
+      soundCheckAudioRef.current = audio;
+      audio.volume = soundVolume / 100;
 
-    window.speechSynthesis.speak(utterance);
+      audio.onended = () => {
+        setIsPlayingSound(false);
+        setSoundVerified(true);
+      };
+
+      const fallbackToWebSpeech = () => {
+        if (typeof window !== "undefined" && "speechSynthesis" in window) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = "en-GB";
+          utterance.volume = soundVolume / 100;
+          utterance.rate = 0.95;
+          utterance.onend = () => {
+            setIsPlayingSound(false);
+            setSoundVerified(true);
+          };
+          utterance.onerror = () => setIsPlayingSound(false);
+          window.speechSynthesis.speak(utterance);
+        } else {
+          setIsPlayingSound(false);
+        }
+      };
+
+      audio.onerror = () => {
+        console.warn("Native TTS audio error, falling back to Web Speech API");
+        fallbackToWebSpeech();
+      };
+
+      audio.play().catch((err) => {
+        console.warn("Audio play interrupted or policy blocked, falling back:", err);
+        fallbackToWebSpeech();
+      });
+    } catch (err) {
+      console.error("Audio initialization error:", err);
+      setIsPlayingSound(false);
+    }
   };
 
   // Handler: Start 5-second Mic Test
@@ -738,7 +774,13 @@ export default function ExamSetupPage() {
                     min="0"
                     max="100"
                     value={soundVolume}
-                    onChange={(e) => setSoundVolume(Number(e.target.value))}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setSoundVolume(val);
+                      if (soundCheckAudioRef.current) {
+                        soundCheckAudioRef.current.volume = val / 100;
+                      }
+                    }}
                     className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
                   />
                   <span className="text-xs font-mono text-slate-600 w-8">{soundVolume}%</span>
