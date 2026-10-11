@@ -1223,7 +1223,7 @@ export default function ExamSetupPage() {
       <footer className="bg-white border-t border-slate-200 py-6 px-6 text-center text-xs text-slate-600 flex flex-col items-center gap-2">
         <p>© 2026 Cavin&apos;s English. All rights reserved. • Replicated IELTS Computer-Delivered Testing Standards.</p>
         <p className="max-w-4xl text-[11px] text-slate-500 leading-relaxed">
-          IELTS® là thương hiệu đã đăng ký của Cambridge University Press & Assessment, IDP: IELTS Australia và British Council. Website này là hệ thống mô phỏng độc lập sử dụng phiên bản AI lõi Gemini Ultra Pro & ChatGPT Max được thiết kế độc quyền cho Cavin&apos;s English — Hệ thống tự động cập nhật và đồng bộ ngân hàng đề thi thật Forecast hàng tuần theo thời gian thực từ hội đồng thi quốc tế.
+          IELTS® là thương hiệu đã đăng ký của Cambridge University Press & Assessment, IDP: IELTS Australia và British Council. Website này là hệ thống mô phỏng độc lập sử dụng phiên bản AI lõi Gemini Ultra Pro & ChatGPT Max được thiết kế độc quyền cho Cavin&apos;s English — Ngân hàng đề thi thật Forecast được đội ngũ chuyên môn tuyển chọn và kiểm duyệt kỹ lưỡng chuẩn khảo thí quốc tế.
         </p>
       </footer>
     </div>

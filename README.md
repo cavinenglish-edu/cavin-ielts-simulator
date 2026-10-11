@@ -34,11 +34,10 @@ npm run dev
 ```
 Mở trình duyệt truy cập: [http://localhost:3000](http://localhost:3000)
 
-### 5. Cào đề thi thật & Forecast tự động lên Database
-Nếu muốn chạy tool cào và tổng hợp ngân hàng đề thi AI lên Supabase:
-```bash
-npx ts-node scripts/scrape_forecast.ts
-```
+### 5. Cập nhật Đề thi & Bộ đề Khảo thí (Manual Curation)
+Tính năng AI tự động cào web đã được **vô hiệu hóa** nhằm đảm bảo 100% đề thi đưa lên hệ thống được kiểm duyệt kỹ lưỡng, chuẩn format IDP/BC:
+- **Cập nhật bộ đề tĩnh cốt lõi:** Thêm trực tiếp vào [`data/exam_data.ts`](file:///data/exam_data.ts)
+- **Tải lên Database Supabase:** Sử dụng utility [`scripts/import_manual_exam.ts`](file:///scripts/import_manual_exam.ts)
 
 ---
 
