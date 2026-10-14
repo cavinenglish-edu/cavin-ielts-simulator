@@ -149,7 +149,6 @@ export default function ExamSetupPage() {
         if (parsed && parsed.isQualified) {
           setCandidateSession(parsed);
           setCandidateName(parsed.name || "");
-          if (parsed.phone) setCandidateId(parsed.phone);
         }
       }
     } catch (_) {}
@@ -167,7 +166,6 @@ export default function ExamSetupPage() {
   const handleAuthSuccess = (candidate: CandidateSession) => {
     setCandidateSession(candidate);
     setCandidateName(candidate.name);
-    if (candidate.phone) setCandidateId(candidate.phone);
     toast.success(`Xác thực thành công! Chào mừng thí sinh ${candidate.name}`, { duration: 4000 });
     setShowCandidateModal(true);
   };
@@ -1186,11 +1184,19 @@ export default function ExamSetupPage() {
                         onChange={(e) => setTargetBand(e.target.value)}
                         className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium bg-white"
                       >
+                        <option value="3.0+">Band 3.0+ (Extremely limited)</option>
+                        <option value="3.5+">Band 3.5+ (Extremely limited)</option>
+                        <option value="4.0+">Band 4.0+ (Limited)</option>
+                        <option value="4.5+">Band 4.5+ (Limited)</option>
+                        <option value="5.0+">Band 5.0+ (Modest)</option>
+                        <option value="5.5+">Band 5.5+ (Modest)</option>
                         <option value="6.0+">Band 6.0+ (Competent)</option>
                         <option value="6.5+">Band 6.5+ (Good Competent)</option>
                         <option value="7.0+">Band 7.0+ (Good User)</option>
                         <option value="7.5+">Band 7.5+ (Very Good)</option>
                         <option value="8.0+">Band 8.0+ (Expert)</option>
+                        <option value="8.5+">Band 8.5+ (Very good)</option>
+                        <option value="9.0+">Band 9.0+ (Expert)</option>
                       </select>
                     </div>
                   </div>
