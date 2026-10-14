@@ -35,6 +35,7 @@ type Draft = {
   task1Prompt: string;
   task1ImageUrl: string;
   task2Prompt: string;
+  accessCode: string;
   examinerName: string;
   examinerVoice: ExaminerVoice;
   examinerRole?: string;
@@ -72,6 +73,7 @@ function emptyDraft(): Draft {
     task1Prompt: "",
     task1ImageUrl: "",
     task2Prompt: "",
+    accessCode: "",
     examinerName: "",
     examinerVoice: "en-GB-RyanNeural",
     part1Questions: [""],
@@ -88,6 +90,7 @@ function draftFromPaper(paper: PaperInput | null): Draft {
   draft.title = paper.title;
   draft.season = paper.season ?? "";
   draft.skill = paper.skill;
+  draft.accessCode = paper.accessCode ?? "";
   if (paper.skill === "listening") draft.sections = paper.sections;
   if (paper.skill === "reading") draft.passages = paper.passages;
   if (paper.skill === "writing") {
@@ -115,6 +118,7 @@ function payloadFor(draft: Draft): Record<string, unknown> {
     title: draft.title,
     season: draft.season,
     skill: draft.skill,
+    ...(draft.accessCode.trim() ? { accessCode: draft.accessCode.trim() } : {}),
   };
   if (draft.skill === "listening") return { ...common, sections: draft.sections };
   if (draft.skill === "reading") return { ...common, passages: draft.passages };
@@ -196,6 +200,22 @@ export function PaperForm({ initial }: { initial: PaperInput | null }) {
           placeholder="Ví dụ: Mini Test 1 — Listening"
         />
       </div>
+
+      {draft.skill !== "speaking" ? (
+        <div>
+          <label htmlFor="access-code" className={labelClass}>
+            Mã truy cập đề
+          </label>
+          <input
+            id="access-code"
+            value={draft.accessCode}
+            onChange={(event) => setDraft((current) => ({ ...current, accessCode: event.target.value }))}
+            className={inputClass}
+            placeholder="Mã thí sinh nhập trước giờ thi"
+            autoComplete="off"
+          />
+        </div>
+      ) : null}
 
       {draft.skill === "listening" ? (
         <ListeningFields

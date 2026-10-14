@@ -1,5 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { pretestSession } from "@/lib/exam-sitting";
+import { EXAM_COOKIE, examCookieOptions, signSession } from "@/lib/exam-session-token";
+
+function withCandidateCookie(
+  body: unknown,
+  candidate: { name?: string; engName?: string; phone?: string; userType?: string },
+) {
+  const response = NextResponse.json(body);
+  const secret = process.env.EXAM_SESSION_SECRET;
+  if (!secret) return response;
+  const userType = candidate.userType === "student" || candidate.userType === "online" ? candidate.userType : "";
+  const session = pretestSession({
+    name: candidate.name || "Thí sinh",
+    engName: candidate.engName || "",
+    phone: candidate.phone || "",
+    userType,
+    candidateNumber: `VN102-${Math.floor(100000 + Math.random() * 900000)}`,
+  });
+  response.cookies.set(EXAM_COOKIE, signSession(session, secret), examCookieOptions());
+  return response;
+}
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -54,40 +75,34 @@ export async function POST(req: NextRequest) {
       if (!error && data) {
         // Found record in Supabase
         if (data.user_type === "online") {
-          return NextResponse.json({
-            status: "SUCCESS",
-            type: "online",
-            candidate: {
-              name: data.student_name || "Thí sinh tự do",
-              engName: data.eng_name || "Online Candidate",
-              phone: data.phone,
-              email: data.email,
-              pin: data.pin,
-              userType: "online",
-              classes: data.classes || ["Khách Online VIP"],
-              packageType: data.package_type || "VIP",
-              expiry: data.expiry,
-              isQualified: true
-            }
-          });
+          const candidate = {
+            name: data.student_name || "Thí sinh tự do",
+            engName: data.eng_name || "Online Candidate",
+            phone: data.phone,
+            email: data.email,
+            pin: data.pin,
+            userType: "online" as const,
+            classes: data.classes || ["Khách Online VIP"],
+            packageType: data.package_type || "VIP",
+            expiry: data.expiry,
+            isQualified: true,
+          };
+          return withCandidateCookie({ status: "SUCCESS", type: "online", candidate }, candidate);
         }
 
         // Student Type (Danh Sách Gốc)
         const isQualified = checkStudentCombo(data.classes || []);
         if (isQualified) {
-          return NextResponse.json({
-            status: "SUCCESS",
-            type: "student",
-            candidate: {
-              name: data.student_name,
-              engName: data.eng_name,
-              phone: data.phone,
-              pin: data.pin,
-              userType: "student",
-              classes: data.classes,
-              isQualified: true
-            }
-          });
+          const candidate = {
+            name: data.student_name,
+            engName: data.eng_name,
+            phone: data.phone,
+            pin: data.pin,
+            userType: "student" as const,
+            classes: data.classes,
+            isQualified: true,
+          };
+          return withCandidateCookie({ status: "SUCCESS", type: "student", candidate }, candidate);
         } else {
           return NextResponse.json({
             status: "NOT_QUALIFIED",
@@ -137,19 +152,16 @@ export async function POST(req: NextRequest) {
           }
 
           if (isQualified) {
-            return NextResponse.json({
-              status: "SUCCESS",
-              type: "student",
-              candidate: {
-                name: gasData.studentName,
-                engName: gasData.engName || "",
-                phone: rawPhone,
-                pin,
-                userType: "student",
-                classes,
-                isQualified: true
-              }
-            });
+            const candidate = {
+              name: gasData.studentName,
+              engName: gasData.engName || "",
+              phone: rawPhone,
+              pin,
+              userType: "student" as const,
+              classes,
+              isQualified: true,
+            };
+            return withCandidateCookie({ status: "SUCCESS", type: "student", candidate }, candidate);
           } else {
             return NextResponse.json({
               status: "NOT_QUALIFIED",

@@ -141,32 +141,64 @@ export default function ExamSetupPage() {
   const [candidateNumber, setCandidateNumber] = useState<string>("VN102-849201");
 
   useEffect(() => {
-    setCandidateNumber("VN102-" + Math.floor(100000 + Math.random() * 900000));
-    try {
-      const saved = sessionStorage.getItem("cavin_candidate_session");
-      if (saved) {
-        const parsed: CandidateSession = JSON.parse(saved);
-        if (parsed && parsed.isQualified) {
-          setCandidateSession(parsed);
-          setCandidateName(parsed.name || "");
+    const id = window.setTimeout(() => {
+      setCandidateNumber("VN102-" + Math.floor(100000 + Math.random() * 900000));
+      try {
+        const saved = sessionStorage.getItem("cavin_candidate_session");
+        if (saved) {
+          const parsed: CandidateSession = JSON.parse(saved);
+          if (parsed && parsed.isQualified) {
+            setCandidateSession(parsed);
+            setCandidateName(parsed.name || "");
+          }
         }
+      } catch {
+        /* keep the generated candidate number */
       }
-    } catch (_) {}
+    }, 0);
+    return () => window.clearTimeout(id);
   }, []);
+
+  const openComputerCheck = (examId: string, name: string) => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(
+        "ielts_candidate",
+        JSON.stringify({
+          name,
+          id: candidateId,
+          number: candidateNumber,
+          target: targetBand,
+          selectedExamId: examId,
+        }),
+      );
+    }
+    router.push("/exam/check");
+  };
 
   const handleExamSelect = (examId: string) => {
     setSelectedExamId(examId);
+    const skill = examSkills[examId] ?? "speaking";
+    const computer = skill !== "speaking" && examId !== "random";
     if (!candidateSession || !candidateSession.isQualified) {
       setShowAuthModal(true);
-    } else {
-      setShowCandidateModal(true);
+      return;
     }
+    if (computer) {
+      openComputerCheck(examId, candidateSession.name);
+      return;
+    }
+    setShowCandidateModal(true);
   };
 
   const handleAuthSuccess = (candidate: CandidateSession) => {
     setCandidateSession(candidate);
     setCandidateName(candidate.name);
     toast.success(`Xác thực thành công! Chào mừng thí sinh ${candidate.name}`, { duration: 4000 });
+    const skill = examSkills[selectedExamId] ?? "speaking";
+    if (skill !== "speaking" && selectedExamId !== "random") {
+      openComputerCheck(selectedExamId, candidate.name);
+      return;
+    }
     setShowCandidateModal(true);
   };
 
@@ -433,13 +465,7 @@ export default function ExamSetupPage() {
                 <span className="font-semibold truncate max-w-[150px]">{candidateSession.name}</span>
               </div>
             ) : (
-              <button
-                onClick={() => setShowAuthModal(true)}
-                className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-3 py-1.5 rounded-full text-xs transition cursor-pointer flex items-center gap-1.5 shadow-sm"
-              >
-                <KeyRound className="w-3.5 h-3.5" />
-                <span>Đăng nhập PIN</span>
-              </button>
+              <span className="text-slate-400">Chưa xác thực</span>
             )}
           </div>
         </div>
@@ -492,6 +518,7 @@ export default function ExamSetupPage() {
             ) : (
               <button
                 onClick={() => setShowAuthModal(true)}
+                data-testid="pin-entry"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition cursor-pointer"
               >
                 <KeyRound className="w-3.5 h-3.5" />

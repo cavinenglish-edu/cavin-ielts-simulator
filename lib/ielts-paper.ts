@@ -54,6 +54,8 @@ const listeningSchema = z.object({
   title: z.string().trim().min(1, "Nhập tiêu đề đề thi"),
   season: z.string().trim().optional(),
   status: z.enum(["draft", "published"]),
+  accessCode: z.string().trim().max(64).optional(),
+  durationSeconds: z.number().int().positive().max(7200).optional(),
   sections: z
     .array(
       z.object({
@@ -73,6 +75,7 @@ const readingSchema = z.object({
   title: z.string().trim().min(1, "Nhập tiêu đề đề thi"),
   season: z.string().trim().optional(),
   status: z.enum(["draft", "published"]),
+  accessCode: z.string().trim().max(64).optional(),
   passages: z
     .array(
       z.object({
@@ -92,6 +95,7 @@ const writingSchema = z.object({
   title: z.string().trim().min(1, "Nhập tiêu đề đề thi"),
   season: z.string().trim().optional(),
   status: z.enum(["draft", "published"]),
+  accessCode: z.string().trim().max(64).optional(),
   task1Prompt: z.string().trim().min(1, "Nhập đề Task 1").max(20000),
   task1ImageUrl: z.union([z.literal(""), z.url("URL hình Task 1 không hợp lệ")]).optional(),
   task2Prompt: z.string().trim().min(1, "Nhập đề Task 2").max(20000),
@@ -103,6 +107,7 @@ const speakingSchema = z.object({
   title: z.string().trim().min(1, "Nhập tiêu đề đề thi"),
   season: z.string().trim().optional(),
   status: z.enum(["draft", "published"]),
+  accessCode: z.string().trim().max(64).optional(),
   examinerName: z.string().trim().min(2, "Nhập tên giám khảo"),
   examinerVoice: z.enum(voiceValues),
   examinerRole: z.string().trim().min(1).optional(),
@@ -273,6 +278,12 @@ export function fieldErrorsFromZod(error: z.ZodError): Record<string, string[]> 
   return fieldErrors;
 }
 
+function withAccessCode<T extends Record<string, unknown>>(paper: T, code: string | undefined): T {
+  const trimmed = code?.trim();
+  if (!trimmed) return paper;
+  return { ...paper, accessCode: trimmed } as T;
+}
+
 function avatarFor(name: string): string {
   return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`;
 }
@@ -288,7 +299,7 @@ export function toDbRow(input: PaperInput): IeltsExamWrite {
       examiner_voice: input.examinerVoice,
       status: input.status,
       skill: "speaking",
-      paper: {},
+      paper: withAccessCode({}, input.accessCode),
       part1_topics: [
         {
           id: "p1",
@@ -326,9 +337,13 @@ export function toDbRow(input: PaperInput): IeltsExamWrite {
     return {
       ...shell,
       skill: "listening",
-      paper: {
-        sections: input.sections,
-      },
+      paper: withAccessCode(
+        {
+          sections: input.sections,
+          ...(input.durationSeconds ? { durationSeconds: input.durationSeconds } : {}),
+        },
+        input.accessCode,
+      ),
     };
   }
 
@@ -336,9 +351,12 @@ export function toDbRow(input: PaperInput): IeltsExamWrite {
     return {
       ...shell,
       skill: "reading",
-      paper: {
-        passages: input.passages,
-      },
+      paper: withAccessCode(
+        {
+          passages: input.passages,
+        },
+        input.accessCode,
+      ),
     };
   }
 
@@ -346,13 +364,16 @@ export function toDbRow(input: PaperInput): IeltsExamWrite {
   return {
     ...shell,
     skill: "writing",
-    paper: {
-      task1: {
-        prompt: input.task1Prompt,
-        ...(imageUrl ? { imageUrl } : {}),
+    paper: withAccessCode(
+      {
+        task1: {
+          prompt: input.task1Prompt,
+          ...(imageUrl ? { imageUrl } : {}),
+        },
+        task2: { prompt: input.task2Prompt },
       },
-      task2: { prompt: input.task2Prompt },
-    },
+      input.accessCode,
+    ),
   };
 }
 
@@ -380,6 +401,8 @@ export function fromDbRow(row: Record<string, unknown>): PaperInput {
       preparePaperInput({
         ...shared,
         skill: "listening",
+        accessCode: text(paper?.accessCode) || text(paper?.access_code) || undefined,
+        durationSeconds: typeof paper?.durationSeconds === "number" ? paper.durationSeconds : undefined,
         sections: Array.isArray(paper?.sections) ? paper.sections : [],
       }),
     );
@@ -392,6 +415,7 @@ export function fromDbRow(row: Record<string, unknown>): PaperInput {
       preparePaperInput({
         ...shared,
         skill: "reading",
+        accessCode: text(paper?.accessCode) || text(paper?.access_code) || undefined,
         passages: passages.length > 0 ? passages : [{ id: "passage-1", title: "Passage 1", text: "", questions: [] }],
       }),
     );
@@ -405,6 +429,7 @@ export function fromDbRow(row: Record<string, unknown>): PaperInput {
       preparePaperInput({
         ...shared,
         skill: "writing",
+        accessCode: text(paper?.accessCode) || text(paper?.access_code) || undefined,
         task1Prompt: text(task1?.prompt),
         task1ImageUrl: text(task1?.imageUrl),
         task2Prompt: text(task2?.prompt),
@@ -424,6 +449,7 @@ export function fromDbRow(row: Record<string, unknown>): PaperInput {
     preparePaperInput({
       ...shared,
       skill: "speaking",
+      accessCode: text(asRecord(row.paper)?.accessCode) || undefined,
       examinerName: text(row.examiner_name) || "Examiner",
       examinerVoice: isExaminerVoice(storedVoice) ? storedVoice : "en-GB-RyanNeural",
       examinerRole: text(row.examiner_role) || undefined,
