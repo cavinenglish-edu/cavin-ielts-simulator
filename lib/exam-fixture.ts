@@ -1,12 +1,13 @@
+import type { ExamDataSet } from "@/data/exam_data";
 import { FIXTURE_PAPER_ID, listeningSecondsOrDefault } from "@/lib/exam-sitting";
 import type { ListeningPaper, ReadingPaper, WritingPaper } from "@/lib/exam-skill";
 
-export const FIXTURE_ACCESS_CODE = "482913";
+export const FIXTURE_ACTUAL_ID = "fixture-actual";
+export const FIXTURE_FORECAST_ID = "fixture-forecast";
 
 export type FullPaper = {
   id: string;
   title: string;
-  accessCode: string;
   listeningSeconds: number;
   listening: ListeningPaper;
   reading: ReadingPaper;
@@ -17,7 +18,6 @@ export function fixtureFullPaper(): FullPaper {
   return {
     id: FIXTURE_PAPER_ID,
     title: "E2E Full Sitting",
-    accessCode: FIXTURE_ACCESS_CODE,
     listeningSeconds: listeningSecondsOrDefault(30 * 60),
     listening: {
       durationSeconds: 30 * 60,
@@ -64,6 +64,65 @@ export function fixtureFullPaper(): FullPaper {
       task2: {
         prompt: "Some people think cities should close old harbours and build housing. Discuss both views and give your opinion.",
       },
+    },
+  };
+}
+
+export function fixtureSpeaking(kind: "actual" | "forecast"): ExamDataSet {
+  if (kind === "forecast") {
+    return {
+      id: FIXTURE_FORECAST_ID,
+      title: "Forecast: Daily Routines",
+      category: "Forecast",
+      season: "Forecast",
+      examinerName: "Ms. Emma Cole",
+      examinerRole: "Senior Certified IELTS Examiner",
+      examinerVoice: "en-GB",
+      part1: {
+        welcome: "Good afternoon. Let's talk about your daily routine.",
+        questions: [
+          { id: "f1", question: "What time do you usually get up?", recommendedDurationSeconds: 30 },
+        ],
+      },
+      part2: {
+        id: "f2",
+        topicTitle: "Describe a habit you want to change.",
+        taskCardPrompt: "You should say:",
+        bulletPoints: ["What the habit is", "Why you want to change it"],
+        prepTimeSeconds: 60,
+        speakTimeSeconds: 120,
+      },
+      part3: {
+        topicIntro: "Let's talk more about routines.",
+        questions: [{ id: "f3", question: "Why are routines useful?", recommendedDurationSeconds: 45 }],
+      },
+    };
+  }
+  return {
+    id: FIXTURE_ACTUAL_ID,
+    title: "Actual Harbour Sitting",
+    category: "Actual",
+    season: "Actual",
+    examinerName: "Mr. Thomas Hale",
+    examinerRole: "Senior Certified IELTS Examiner",
+    examinerVoice: "en-GB",
+    part1: {
+      welcome: "Good afternoon. This is the speaking section of the same paper.",
+      questions: [
+        { id: "a1", question: "Do you live near the water?", recommendedDurationSeconds: 30 },
+      ],
+    },
+    part2: {
+      id: "a2",
+      topicTitle: "Describe a harbour or river you know.",
+      taskCardPrompt: "You should say:",
+      bulletPoints: ["Where it is", "What people do there"],
+      prepTimeSeconds: 60,
+      speakTimeSeconds: 120,
+    },
+    part3: {
+      topicIntro: "Let's talk about cities and water.",
+      questions: [{ id: "a3", question: "Should cities keep their old harbours?", recommendedDurationSeconds: 45 }],
     },
   };
 }

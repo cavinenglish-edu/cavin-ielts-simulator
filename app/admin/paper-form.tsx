@@ -7,8 +7,6 @@ import {
   EXAMINER_VOICES,
   QUESTION_TYPE_LABEL,
   QUESTION_TYPES,
-  SKILL_LABEL,
-  SKILLS,
   TFNG_OPTIONS,
   type ExaminerVoice,
   type ListeningSection,
@@ -29,13 +27,13 @@ type Draft = {
   id?: string;
   title: string;
   season: string;
+  catalog: "actual" | "forecast";
   skill: Skill;
   sections: ListeningSection[];
   passages: ReadingPassage[];
   task1Prompt: string;
   task1ImageUrl: string;
   task2Prompt: string;
-  accessCode: string;
   examinerName: string;
   examinerVoice: ExaminerVoice;
   examinerRole?: string;
@@ -43,6 +41,7 @@ type Draft = {
   part2Content?: string;
   part1Questions: string[];
   part2Prompt: string;
+  part2ImageUrl: string;
   part2Bullets: string[];
   part3Questions: string[];
 };
@@ -67,17 +66,18 @@ function emptyDraft(): Draft {
   return {
     title: "",
     season: "",
+    catalog: "actual",
     skill: "listening",
     sections: [blankSection(1)],
     passages: [blankPassage(1)],
     task1Prompt: "",
     task1ImageUrl: "",
     task2Prompt: "",
-    accessCode: "",
     examinerName: "",
     examinerVoice: "en-GB-RyanNeural",
     part1Questions: [""],
     part2Prompt: "",
+    part2ImageUrl: "",
     part2Bullets: [""],
     part3Questions: [""],
   };
@@ -89,16 +89,14 @@ function draftFromPaper(paper: PaperInput | null): Draft {
   draft.id = paper.id;
   draft.title = paper.title;
   draft.season = paper.season ?? "";
-  draft.skill = paper.skill;
-  draft.accessCode = paper.accessCode ?? "";
-  if (paper.skill === "listening") draft.sections = paper.sections;
-  if (paper.skill === "reading") draft.passages = paper.passages;
-  if (paper.skill === "writing") {
+  draft.skill = paper.skill === "sitting" ? "listening" : paper.skill;
+  if (paper.skill === "sitting") {
+    draft.catalog = "actual";
+    draft.sections = paper.sections;
+    draft.passages = paper.passages;
     draft.task1Prompt = paper.task1Prompt;
     draft.task1ImageUrl = paper.task1ImageUrl ?? "";
     draft.task2Prompt = paper.task2Prompt;
-  }
-  if (paper.skill === "speaking") {
     draft.examinerName = paper.examinerName;
     draft.examinerVoice = paper.examinerVoice;
     draft.examinerRole = paper.examinerRole;
@@ -106,6 +104,35 @@ function draftFromPaper(paper: PaperInput | null): Draft {
     draft.part2Content = paper.part2Content;
     draft.part1Questions = paper.part1Questions;
     draft.part2Prompt = paper.part2Prompt;
+    draft.part2ImageUrl = paper.part2ImageUrl ?? "";
+    draft.part2Bullets = paper.part2Bullets;
+    draft.part3Questions = paper.part3Questions;
+    return draft;
+  }
+  if (paper.skill === "listening") {
+    draft.catalog = "actual";
+    draft.sections = paper.sections;
+  }
+  if (paper.skill === "reading") {
+    draft.catalog = "actual";
+    draft.passages = paper.passages;
+  }
+  if (paper.skill === "writing") {
+    draft.catalog = "actual";
+    draft.task1Prompt = paper.task1Prompt;
+    draft.task1ImageUrl = paper.task1ImageUrl ?? "";
+    draft.task2Prompt = paper.task2Prompt;
+  }
+  if (paper.skill === "speaking") {
+    draft.catalog = "forecast";
+    draft.examinerName = paper.examinerName;
+    draft.examinerVoice = paper.examinerVoice;
+    draft.examinerRole = paper.examinerRole;
+    draft.examinerAvatar = paper.examinerAvatar;
+    draft.part2Content = paper.part2Content;
+    draft.part1Questions = paper.part1Questions;
+    draft.part2Prompt = paper.part2Prompt;
+    draft.part2ImageUrl = paper.part2ImageUrl ?? "";
     draft.part2Bullets = paper.part2Bullets;
     draft.part3Questions = paper.part3Questions;
   }
@@ -117,21 +144,33 @@ function payloadFor(draft: Draft): Record<string, unknown> {
     id: draft.id,
     title: draft.title,
     season: draft.season,
-    skill: draft.skill,
-    ...(draft.accessCode.trim() ? { accessCode: draft.accessCode.trim() } : {}),
   };
-  if (draft.skill === "listening") return { ...common, sections: draft.sections };
-  if (draft.skill === "reading") return { ...common, passages: draft.passages };
-  if (draft.skill === "writing") {
+  if (draft.catalog === "actual") {
     return {
       ...common,
+      skill: "sitting",
+      catalog: "actual",
+      sections: draft.sections,
+      passages: draft.passages,
       task1Prompt: draft.task1Prompt,
       task1ImageUrl: draft.task1ImageUrl,
       task2Prompt: draft.task2Prompt,
+      examinerName: draft.examinerName,
+      examinerVoice: draft.examinerVoice,
+      examinerRole: draft.examinerRole,
+      examinerAvatar: draft.examinerAvatar,
+      part2Content: draft.part2Content,
+      part1Questions: draft.part1Questions,
+      part2Prompt: draft.part2Prompt,
+      part2ImageUrl: draft.part2ImageUrl,
+      part2Bullets: draft.part2Bullets,
+      part3Questions: draft.part3Questions,
     };
   }
   return {
     ...common,
+    skill: "speaking",
+    catalog: "forecast",
     examinerName: draft.examinerName,
     examinerVoice: draft.examinerVoice,
     examinerRole: draft.examinerRole,
@@ -139,6 +178,7 @@ function payloadFor(draft: Draft): Record<string, unknown> {
     part2Content: draft.part2Content,
     part1Questions: draft.part1Questions,
     part2Prompt: draft.part2Prompt,
+    part2ImageUrl: draft.part2ImageUrl,
     part2Bullets: draft.part2Bullets,
     part3Questions: draft.part3Questions,
   };
@@ -156,7 +196,7 @@ export function PaperForm({ initial }: { initial: PaperInput | null }) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900">{draft.id ? "Sửa đề thi" : "Tạo đề thi"}</h1>
-          <p className="text-sm text-slate-600 mt-1">Một đề ngắn là đủ để xuất bản. Xuất bản là thao tác chính.</p>
+          <p className="text-sm text-slate-600 mt-1">Chọn Đề thật hoặc Forecast, nhập nội dung, rồi xuất bản. Không có mã truy cập đề.</p>
         </div>
         {draft.id ? (
           <Link href="/admin" className="text-sm font-semibold text-blue-700 hover:text-blue-800">
@@ -165,27 +205,35 @@ export function PaperForm({ initial }: { initial: PaperInput | null }) {
         ) : null}
       </div>
 
-      <div role="radiogroup" aria-label="Kỹ năng" className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {SKILLS.map((skill) => {
-          const active = draft.skill === skill;
+      <div role="radiogroup" aria-label="Loại đề" className="grid grid-cols-2 gap-2">
+        {([
+          ["actual", "Đề thật"],
+          ["forecast", "Forecast"],
+        ] as const).map(([catalog, label]) => {
+          const active = draft.catalog === catalog;
           return (
             <button
-              key={skill}
+              key={catalog}
               type="button"
               role="radio"
               aria-checked={active}
-              data-testid={`skill-${skill}`}
+              data-testid={`catalog-${catalog}`}
               disabled={skillLocked && !active}
-              onClick={() => setDraft((current) => ({ ...current, skill }))}
+              onClick={() => setDraft((current) => ({ ...current, catalog }))}
               className={`px-3 py-3 rounded-xl text-sm font-semibold border ${
                 active ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-800 border-slate-300 hover:border-slate-400"
               } disabled:opacity-50`}
             >
-              {SKILL_LABEL[skill]}
+              {label}
             </button>
           );
         })}
       </div>
+      <p className="text-xs text-slate-600">
+        {draft.catalog === "actual"
+          ? "Đề thật gồm Nghe, Đọc, Viết và Nói trong cùng một đề. Máy thi chạy Nghe, rồi Đọc, rồi Viết, rồi phòng Nói của chính đề đó."
+          : "Forecast chỉ là chủ đề Nói do Admin nhập tại đây. Không có nguồn cào bên ngoài."}
+      </p>
 
       <div>
         <label htmlFor="paper-title" className={labelClass}>
@@ -201,35 +249,19 @@ export function PaperForm({ initial }: { initial: PaperInput | null }) {
         />
       </div>
 
-      {draft.skill !== "speaking" ? (
-        <div>
-          <label htmlFor="access-code" className={labelClass}>
-            Mã truy cập đề
-          </label>
-          <input
-            id="access-code"
-            value={draft.accessCode}
-            onChange={(event) => setDraft((current) => ({ ...current, accessCode: event.target.value }))}
-            className={inputClass}
-            placeholder="Mã thí sinh nhập trước giờ thi"
-            autoComplete="off"
-          />
-        </div>
-      ) : null}
-
-      {draft.skill === "listening" ? (
+      {draft.catalog === "actual" ? (
         <ListeningFields
           sections={draft.sections}
           onChange={(sections) => setDraft((current) => ({ ...current, sections }))}
         />
       ) : null}
-      {draft.skill === "reading" ? (
+      {draft.catalog === "actual" ? (
         <ReadingFields
           passages={draft.passages}
           onChange={(passages) => setDraft((current) => ({ ...current, passages }))}
         />
       ) : null}
-      {draft.skill === "writing" ? (
+      {draft.catalog === "actual" ? (
         <WritingFields
           task1Prompt={draft.task1Prompt}
           task1ImageUrl={draft.task1ImageUrl}
@@ -237,12 +269,10 @@ export function PaperForm({ initial }: { initial: PaperInput | null }) {
           onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))}
         />
       ) : null}
-      {draft.skill === "speaking" ? (
-        <SpeakingFields
-          draft={draft}
-          onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))}
-        />
-      ) : null}
+      <SpeakingFields
+        draft={draft}
+        onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))}
+      />
 
       {state.fieldErrors ? (
         <div role="alert" data-testid="field-errors" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -561,6 +591,19 @@ function SpeakingFields({
           className={inputClass}
           value={draft.part2Prompt}
           onChange={(event) => onChange({ part2Prompt: event.target.value })}
+        />
+      </div>
+      <div>
+        <label className={labelClass} htmlFor="part2-image">
+          Part 2 — ảnh cue card (nếu có)
+        </label>
+        <input
+          id="part2-image"
+          data-testid="part2-image"
+          className={inputClass}
+          value={draft.part2ImageUrl}
+          placeholder="https://"
+          onChange={(event) => onChange({ part2ImageUrl: event.target.value })}
         />
       </div>
       <StringList

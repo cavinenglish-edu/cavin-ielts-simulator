@@ -187,7 +187,7 @@ describe("database shape", () => {
     );
     const row = toDbRow(parsed);
     assert.equal(row.skill, "speaking");
-    assert.deepEqual(row.paper, {});
+    assert.deepEqual(row.paper, { catalog: "forecast" });
     assert.deepEqual(row.part1_topics, [
       { id: "p1", title: "Part 1", questions: ["Where is your hometown?"] },
     ]);
@@ -209,7 +209,8 @@ describe("database shape", () => {
     assert.deepEqual(row.part1_topics, []);
     assert.deepEqual(row.part2_topic, {});
     assert.deepEqual(row.part3_questions, []);
-    assert.equal(row.paper && "sections" in row.paper && row.paper.sections.length, 1);
+    const sections = row.paper && typeof row.paper === "object" && "sections" in row.paper ? row.paper.sections : [];
+    assert.equal(Array.isArray(sections) ? sections.length : 0, 1);
   });
 
   it("reads a legacy speaking row that has no skill column", () => {

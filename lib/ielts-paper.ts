@@ -13,6 +13,7 @@ import {
   type Skill,
   type WritingPaper,
 } from "@/lib/exam-skill";
+import { computerParts } from "@/lib/exam-catalog";
 import { normalizeAnswer } from "@/lib/ielts-score";
 
 const voiceValues = EXAMINER_VOICES.map((voice) => voice.value) as [ExaminerVoice, ...ExaminerVoice[]];
@@ -54,7 +55,6 @@ const listeningSchema = z.object({
   title: z.string().trim().min(1, "Nhập tiêu đề đề thi"),
   season: z.string().trim().optional(),
   status: z.enum(["draft", "published"]),
-  accessCode: z.string().trim().max(64).optional(),
   durationSeconds: z.number().int().positive().max(7200).optional(),
   sections: z
     .array(
@@ -75,7 +75,6 @@ const readingSchema = z.object({
   title: z.string().trim().min(1, "Nhập tiêu đề đề thi"),
   season: z.string().trim().optional(),
   status: z.enum(["draft", "published"]),
-  accessCode: z.string().trim().max(64).optional(),
   passages: z
     .array(
       z.object({
@@ -95,7 +94,6 @@ const writingSchema = z.object({
   title: z.string().trim().min(1, "Nhập tiêu đề đề thi"),
   season: z.string().trim().optional(),
   status: z.enum(["draft", "published"]),
-  accessCode: z.string().trim().max(64).optional(),
   task1Prompt: z.string().trim().min(1, "Nhập đề Task 1").max(20000),
   task1ImageUrl: z.union([z.literal(""), z.url("URL hình Task 1 không hợp lệ")]).optional(),
   task2Prompt: z.string().trim().min(1, "Nhập đề Task 2").max(20000),
@@ -107,7 +105,7 @@ const speakingSchema = z.object({
   title: z.string().trim().min(1, "Nhập tiêu đề đề thi"),
   season: z.string().trim().optional(),
   status: z.enum(["draft", "published"]),
-  accessCode: z.string().trim().max(64).optional(),
+  catalog: z.literal("forecast").optional(),
   examinerName: z.string().trim().min(2, "Nhập tên giám khảo"),
   examinerVoice: z.enum(voiceValues),
   examinerRole: z.string().trim().min(1).optional(),
@@ -115,6 +113,32 @@ const speakingSchema = z.object({
   part2Content: z.string().trim().min(1).optional(),
   part1Questions: z.array(z.string().trim().min(1, "Nhập câu hỏi Part 1")).min(1, "Cần ít nhất một câu Part 1").max(20),
   part2Prompt: z.string().trim().min(1, "Nhập đề cue card Part 2"),
+  part2ImageUrl: z.union([z.literal(""), z.url("URL cue card không hợp lệ")]).optional(),
+  part2Bullets: z.array(z.string().trim().min(1, "Nhập ý bullet Part 2")).min(1, "Cần ít nhất một ý Part 2").max(8),
+  part3Questions: z.array(z.string().trim().min(1, "Nhập câu hỏi Part 3")).min(1, "Cần ít nhất một câu Part 3").max(20),
+});
+
+const sittingSchema = z.object({
+  id: z.string().uuid("Mã đề không hợp lệ").optional(),
+  skill: z.literal("sitting"),
+  catalog: z.literal("actual"),
+  title: z.string().trim().min(1, "Nhập tiêu đề đề thi"),
+  season: z.string().trim().optional(),
+  status: z.enum(["draft", "published"]),
+  durationSeconds: z.number().int().positive().max(7200).optional(),
+  sections: listeningSchema.shape.sections,
+  passages: readingSchema.shape.passages,
+  task1Prompt: z.string().trim().min(1, "Nhập đề Task 1").max(20000),
+  task1ImageUrl: z.union([z.literal(""), z.url("URL hình Task 1 không hợp lệ")]).optional(),
+  task2Prompt: z.string().trim().min(1, "Nhập đề Task 2").max(20000),
+  examinerName: z.string().trim().min(2, "Nhập tên giám khảo"),
+  examinerVoice: z.enum(voiceValues),
+  examinerRole: z.string().trim().min(1).optional(),
+  examinerAvatar: z.string().trim().min(1).optional(),
+  part2Content: z.string().trim().min(1).optional(),
+  part1Questions: z.array(z.string().trim().min(1, "Nhập câu hỏi Part 1")).min(1, "Cần ít nhất một câu Part 1").max(20),
+  part2Prompt: z.string().trim().min(1, "Nhập đề cue card Part 2"),
+  part2ImageUrl: z.union([z.literal(""), z.url("URL cue card không hợp lệ")]).optional(),
   part2Bullets: z.array(z.string().trim().min(1, "Nhập ý bullet Part 2")).min(1, "Cần ít nhất một ý Part 2").max(8),
   part3Questions: z.array(z.string().trim().min(1, "Nhập câu hỏi Part 3")).min(1, "Cần ít nhất một câu Part 3").max(20),
 });
@@ -124,6 +148,7 @@ export const paperInputSchema = z.discriminatedUnion("skill", [
   readingSchema,
   writingSchema,
   speakingSchema,
+  sittingSchema,
 ]);
 
 export type PaperInput = z.infer<typeof paperInputSchema>;
@@ -137,9 +162,11 @@ export type IeltsExamWrite = {
   examiner_voice: string;
   status: "draft" | "published";
   skill: Skill;
-  paper: ListeningPaper | ReadingPaper | WritingPaper | Record<string, never>;
+  paper: ListeningPaper | ReadingPaper | WritingPaper | Record<string, unknown>;
   part1_topics: Array<{ id: string; title: string; questions: string[] }>;
-  part2_topic: { id: string; title: string; content: string; bulletPoints: string[] } | Record<string, never>;
+  part2_topic:
+    | { id: string; title: string; content: string; bulletPoints: string[]; imageUrl?: string }
+    | Record<string, never>;
   part3_questions: Array<{ id: string; question: string }>;
 };
 
@@ -240,6 +267,44 @@ export function preparePaperInput(input: unknown): unknown {
     };
   }
 
+  if (skill === "sitting") {
+    return {
+      ...base,
+      sections: Array.isArray(row.sections)
+        ? row.sections.map((section, index) => {
+            const item = asRecord(section) ?? {};
+            return {
+              id: text(item.id) || `section-${index + 1}`,
+              title: text(item.title) || `Section ${index + 1}`,
+              audioUrl: text(item.audioUrl),
+              questions: prepareQuestions(item.questions),
+            };
+          })
+        : [],
+      passages: Array.isArray(row.passages)
+        ? row.passages.map((passage, index) => {
+            const item = asRecord(passage) ?? {};
+            return {
+              id: text(item.id) || `passage-${index + 1}`,
+              title: text(item.title) || `Passage ${index + 1}`,
+              text: text(item.text),
+              questions: prepareQuestions(item.questions),
+            };
+          })
+        : [],
+      task1Prompt: text(row.task1Prompt),
+      task1ImageUrl: text(row.task1ImageUrl),
+      task2Prompt: text(row.task2Prompt),
+      examinerName: text(row.examinerName),
+      examinerVoice: text(row.examinerVoice),
+      part1Questions: cleanSpeakingList(row.part1Questions),
+      part2Prompt: text(row.part2Prompt),
+      part2ImageUrl: text(row.part2ImageUrl),
+      part2Bullets: cleanSpeakingList(row.part2Bullets),
+      part3Questions: cleanSpeakingList(row.part3Questions),
+    };
+  }
+
   if (skill === "speaking") {
     const cleanList = (value: unknown): string[] =>
       Array.isArray(value) ? value.map((item) => text(item)).filter(Boolean) : [];
@@ -252,6 +317,7 @@ export function preparePaperInput(input: unknown): unknown {
       examinerVoice: text(row.examinerVoice),
       part1Questions: cleanList(row.part1Questions),
       part2Prompt: text(row.part2Prompt),
+      part2ImageUrl: text(row.part2ImageUrl),
       part2Bullets: cleanList(row.part2Bullets),
       part3Questions: cleanList(row.part3Questions),
     };
@@ -278,28 +344,74 @@ export function fieldErrorsFromZod(error: z.ZodError): Record<string, string[]> 
   return fieldErrors;
 }
 
-function withAccessCode<T extends Record<string, unknown>>(paper: T, code: string | undefined): T {
-  const trimmed = code?.trim();
-  if (!trimmed) return paper;
-  return { ...paper, accessCode: trimmed } as T;
-}
-
 function avatarFor(name: string): string {
   return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`;
 }
 
+function speakingColumns(input: {
+  examinerName: string;
+  examinerRole?: string;
+  examinerAvatar?: string;
+  examinerVoice: string;
+  part2Content?: string;
+  part1Questions: string[];
+  part2Prompt: string;
+  part2ImageUrl?: string;
+  part2Bullets: string[];
+  part3Questions: string[];
+}) {
+  const cueImage = input.part2ImageUrl?.trim();
+  return {
+    examiner_name: input.examinerName,
+    examiner_role: input.examinerRole?.trim() || "Senior Certified IELTS Examiner",
+    examiner_avatar: input.examinerAvatar?.trim() || avatarFor(input.examinerName),
+    examiner_voice: input.examinerVoice,
+    part1_topics: [{ id: "p1", title: "Part 1", questions: input.part1Questions }],
+    part2_topic: {
+      id: "p2",
+      title: input.part2Prompt,
+      content: input.part2Content?.trim() || "You should say:",
+      bulletPoints: input.part2Bullets,
+      ...(cueImage ? { imageUrl: cueImage } : {}),
+    },
+    part3_questions: input.part3Questions.map((question, index) => ({
+      id: `p3_q${index + 1}`,
+      question,
+    })),
+  };
+}
+
 export function toDbRow(input: PaperInput): IeltsExamWrite {
+  if (input.skill === "sitting") {
+    const imageUrl = input.task1ImageUrl?.trim();
+    return {
+      title: input.title,
+      season: input.season?.trim() || "IELTS Academic",
+      ...speakingColumns(input),
+      status: input.status,
+      skill: "listening",
+      paper: {
+        catalog: "actual",
+        sections: input.sections,
+        ...(input.durationSeconds ? { durationSeconds: input.durationSeconds } : {}),
+        passages: input.passages,
+        task1: {
+          prompt: input.task1Prompt,
+          ...(imageUrl ? { imageUrl } : {}),
+        },
+        task2: { prompt: input.task2Prompt },
+      },
+    };
+  }
+
   if (input.skill === "speaking") {
     return {
       title: input.title,
       season: input.season?.trim() || "Forecast",
-      examiner_name: input.examinerName,
-      examiner_role: input.examinerRole?.trim() || "Senior Certified IELTS Examiner",
-      examiner_avatar: input.examinerAvatar?.trim() || avatarFor(input.examinerName),
-      examiner_voice: input.examinerVoice,
+      ...speakingColumns(input),
       status: input.status,
       skill: "speaking",
-      paper: withAccessCode({}, input.accessCode),
+      paper: { catalog: "forecast" },
       part1_topics: [
         {
           id: "p1",
@@ -312,6 +424,7 @@ export function toDbRow(input: PaperInput): IeltsExamWrite {
         title: input.part2Prompt,
         content: input.part2Content?.trim() || "You should say:",
         bulletPoints: input.part2Bullets,
+        ...(input.part2ImageUrl?.trim() ? { imageUrl: input.part2ImageUrl.trim() } : {}),
       },
       part3_questions: input.part3Questions.map((question, index) => ({
         id: `p3_q${index + 1}`,
@@ -337,13 +450,11 @@ export function toDbRow(input: PaperInput): IeltsExamWrite {
     return {
       ...shell,
       skill: "listening",
-      paper: withAccessCode(
-        {
-          sections: input.sections,
-          ...(input.durationSeconds ? { durationSeconds: input.durationSeconds } : {}),
-        },
-        input.accessCode,
-      ),
+      paper: {
+        catalog: "actual",
+        sections: input.sections,
+        ...(input.durationSeconds ? { durationSeconds: input.durationSeconds } : {}),
+      },
     };
   }
 
@@ -351,12 +462,10 @@ export function toDbRow(input: PaperInput): IeltsExamWrite {
     return {
       ...shell,
       skill: "reading",
-      paper: withAccessCode(
-        {
-          passages: input.passages,
-        },
-        input.accessCode,
-      ),
+      paper: {
+        catalog: "actual",
+        passages: input.passages,
+      },
     };
   }
 
@@ -364,17 +473,20 @@ export function toDbRow(input: PaperInput): IeltsExamWrite {
   return {
     ...shell,
     skill: "writing",
-    paper: withAccessCode(
-      {
-        task1: {
-          prompt: input.task1Prompt,
-          ...(imageUrl ? { imageUrl } : {}),
-        },
-        task2: { prompt: input.task2Prompt },
+    paper: {
+      catalog: "actual",
+      task1: {
+        prompt: input.task1Prompt,
+        ...(imageUrl ? { imageUrl } : {}),
       },
-      input.accessCode,
-    ),
+      task2: { prompt: input.task2Prompt },
+    },
   };
+}
+
+function cleanSpeakingList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => text(item)).filter(Boolean);
 }
 
 function stringList(value: unknown): string[] {
@@ -394,42 +506,67 @@ export function fromDbRow(row: Record<string, unknown>): PaperInput {
     season,
     status,
   } as const;
+  const storedPaper = asRecord(row.paper);
+  const parts = computerParts(storedPaper);
+
+  if (storedPaper?.catalog !== "forecast" && parts.listening && parts.reading && parts.writing) {
+    const task1 = asRecord(storedPaper?.task1);
+    const task2 = asRecord(storedPaper?.task2);
+    return paperInputSchema.parse(
+      preparePaperInput({
+        ...shared,
+        skill: "sitting",
+        catalog: "actual",
+        durationSeconds: typeof storedPaper?.durationSeconds === "number" ? storedPaper.durationSeconds : undefined,
+        sections: storedPaper?.sections,
+        passages: storedPaper?.passages,
+        task1Prompt: text(task1?.prompt),
+        task1ImageUrl: text(task1?.imageUrl),
+        task2Prompt: text(task2?.prompt),
+        examinerName: text(row.examiner_name) || "Examiner",
+        examinerVoice: isExaminerVoice(text(row.examiner_voice)) ? text(row.examiner_voice) : "en-GB-RyanNeural",
+        examinerRole: text(row.examiner_role) || undefined,
+        part1Questions: (Array.isArray(row.part1_topics) ? row.part1_topics : []).flatMap((topic) => stringList(asRecord(topic)?.questions)),
+        part2Prompt: text(asRecord(row.part2_topic)?.title),
+        part2ImageUrl: text(asRecord(row.part2_topic)?.imageUrl),
+        part2Content: text(asRecord(row.part2_topic)?.content) || undefined,
+        part2Bullets: stringList(asRecord(row.part2_topic)?.bulletPoints),
+        part3Questions: (Array.isArray(row.part3_questions) ? row.part3_questions : [])
+          .map((question) => text(asRecord(question)?.question))
+          .filter(Boolean),
+      }),
+    );
+  }
 
   if (skill === "listening") {
-    const paper = asRecord(row.paper);
     return paperInputSchema.parse(
       preparePaperInput({
         ...shared,
         skill: "listening",
-        accessCode: text(paper?.accessCode) || text(paper?.access_code) || undefined,
-        durationSeconds: typeof paper?.durationSeconds === "number" ? paper.durationSeconds : undefined,
-        sections: Array.isArray(paper?.sections) ? paper.sections : [],
+        durationSeconds: typeof storedPaper?.durationSeconds === "number" ? storedPaper.durationSeconds : undefined,
+        sections: Array.isArray(storedPaper?.sections) ? storedPaper.sections : [],
       }),
     );
   }
 
   if (skill === "reading") {
-    const paper = asRecord(row.paper);
-    const passages = Array.isArray(paper?.passages) ? paper.passages : [];
+    const passages = Array.isArray(storedPaper?.passages) ? storedPaper.passages : [];
     return paperInputSchema.parse(
       preparePaperInput({
         ...shared,
         skill: "reading",
-        accessCode: text(paper?.accessCode) || text(paper?.access_code) || undefined,
         passages: passages.length > 0 ? passages : [{ id: "passage-1", title: "Passage 1", text: "", questions: [] }],
       }),
     );
   }
 
   if (skill === "writing") {
-    const paper = asRecord(row.paper);
-    const task1 = asRecord(paper?.task1);
-    const task2 = asRecord(paper?.task2);
+    const task1 = asRecord(storedPaper?.task1);
+    const task2 = asRecord(storedPaper?.task2);
     return paperInputSchema.parse(
       preparePaperInput({
         ...shared,
         skill: "writing",
-        accessCode: text(paper?.accessCode) || text(paper?.access_code) || undefined,
         task1Prompt: text(task1?.prompt),
         task1ImageUrl: text(task1?.imageUrl),
         task2Prompt: text(task2?.prompt),
@@ -449,7 +586,7 @@ export function fromDbRow(row: Record<string, unknown>): PaperInput {
     preparePaperInput({
       ...shared,
       skill: "speaking",
-      accessCode: text(asRecord(row.paper)?.accessCode) || undefined,
+      catalog: "forecast",
       examinerName: text(row.examiner_name) || "Examiner",
       examinerVoice: isExaminerVoice(storedVoice) ? storedVoice : "en-GB-RyanNeural",
       examinerRole: text(row.examiner_role) || undefined,
@@ -457,6 +594,7 @@ export function fromDbRow(row: Record<string, unknown>): PaperInput {
       part2Content: text(part2?.content) || undefined,
       part1Questions,
       part2Prompt: text(part2?.title),
+      part2ImageUrl: text(part2?.imageUrl),
       part2Bullets: stringList(part2?.bulletPoints),
       part3Questions: part3
         .map((question) => text(asRecord(question)?.question))

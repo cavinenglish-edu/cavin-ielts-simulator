@@ -9,6 +9,10 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:3100",
     ...devices["Desktop Chrome"],
+    permissions: ["microphone"],
+    launchOptions: {
+      args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"],
+    },
   },
   webServer: {
     command: "npx next dev --port 3100",

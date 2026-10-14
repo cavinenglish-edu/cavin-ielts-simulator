@@ -84,6 +84,31 @@ describe("advance order", () => {
     assert.equal(done.session.clockOffsetMs, 0);
   });
 
+  it("opens speaking after writing, and ends a practice mix at the receipt", () => {
+    const writing = {
+      ...beginListening(pretestSession({ name: "A", candidateNumber: "VN102-1" }, now), 60, now),
+      section: "writing" as const,
+      paperId: "paper-a",
+      durationSeconds: 60,
+      sectionStartedAt: now,
+    };
+    const early = advanceSitting(writing, now + 1_000);
+    assert.equal(early.ok, false);
+    const spoken = advanceSitting(writing, now + 60_000);
+    assert.equal(spoken.ok, true);
+    if (!spoken.ok) return;
+    assert.equal(spoken.session.section, "speaking");
+    const finished = advanceSitting(spoken.session, now + 61_000);
+    assert.equal(finished.ok, true);
+    if (!finished.ok) return;
+    assert.equal(finished.session.section, "done");
+
+    const mix = advanceSitting({ ...writing, paperId: "practice-mix" }, now + 60_000);
+    assert.equal(mix.ok, true);
+    if (!mix.ok) return;
+    assert.equal(mix.session.section, "done");
+  });
+
   it("signs the session so a edited payload does not verify", () => {
     const session = beginListening(pretestSession({ name: "A", candidateNumber: "VN102-1" }, now), 1800, now);
     const token = signSession(session, secret);

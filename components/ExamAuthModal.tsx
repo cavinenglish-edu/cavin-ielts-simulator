@@ -310,6 +310,8 @@ export default function ExamAuthModal({
                   inputMode="numeric"
                   pattern="[0-9]*"
                   maxLength={6}
+                  data-testid="pin-input"
+                  aria-label="Mã PIN"
                   value={pin}
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
                   placeholder="Nhập 4 số hoặc 6 số"
@@ -361,6 +363,7 @@ export default function ExamAuthModal({
             {/* Submit Button */}
             <button
               type="submit"
+              data-testid="pin-submit"
               disabled={isLoading || pin.length < 4}
               className="w-full py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-98 text-white font-bold text-base shadow-lg shadow-blue-600/25 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
             >
