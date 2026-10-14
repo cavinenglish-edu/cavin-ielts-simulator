@@ -6,8 +6,7 @@ import {
   Rocket, 
   Headphones, 
   BookOpenCheck, 
-  PenTool, 
-  KeyRound 
+  PenTool 
 } from "lucide-react";
 
 export default function Home() {
@@ -27,18 +26,9 @@ export default function Home() {
               <span className="text-xs text-blue-600 font-medium ml-2 px-2 py-0.5 bg-blue-50 rounded-full border border-blue-100">Simulator</span>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-400 font-mono hidden md:inline">
-              cavinenglish2edu.com
-            </span>
-            <Link
-              href="/exam"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold text-xs shadow-sm transition"
-            >
-              <KeyRound className="w-3.5 h-3.5" />
-              <span>Đăng nhập PIN</span>
-            </Link>
-          </div>
+          <span className="text-xs text-slate-400 font-mono hidden md:inline">
+            cavinenglish2edu.com
+          </span>
         </div>
       </header>
 
