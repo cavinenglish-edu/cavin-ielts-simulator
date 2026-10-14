@@ -7,11 +7,13 @@ export function ObjectiveQuestions({
   answers,
   onChange,
   disabled,
+  startIndex = 0,
 }: {
-  questions: ObjectiveQuestion[];
+  questions: Array<Pick<ObjectiveQuestion, "id" | "type" | "prompt" | "options">>;
   answers: Record<string, string>;
   onChange: (id: string, value: string) => void;
   disabled?: boolean;
+  startIndex?: number;
 }) {
   return (
     <ol className="space-y-4">
@@ -23,9 +25,9 @@ export function ObjectiveQuestions({
         const options =
           question.type === "true_false_not_given" ? [...TFNG_OPTIONS] : question.options ?? [];
         return (
-          <li key={question.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+          <li id={`question-${question.id}`} key={question.id} className="rounded-2xl border border-slate-200 bg-white p-4">
             <p className="text-sm font-semibold text-slate-900">
-              {index + 1}. {question.prompt}
+              {startIndex + index + 1}. {question.prompt}
             </p>
             {choice ? (
               <fieldset className="mt-3 space-y-2" disabled={disabled}>
@@ -47,7 +49,7 @@ export function ObjectiveQuestions({
             ) : (
               <input
                 aria-label={question.prompt}
-                data-testid={index === 0 ? "short-answer" : undefined}
+                data-testid={startIndex + index === 0 ? "short-answer" : undefined}
                 disabled={disabled}
                 value={answers[question.id] ?? ""}
                 onChange={(event) => onChange(question.id, event.target.value)}

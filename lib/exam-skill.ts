@@ -67,15 +67,19 @@ export type ReadingPassage = {
 
 export type ListeningPaper = {
   sections: ListeningSection[];
+  durationSeconds?: number;
+  accessCode?: string;
 };
 
 export type ReadingPaper = {
   passages: ReadingPassage[];
+  accessCode?: string;
 };
 
 export type WritingPaper = {
   task1: { prompt: string; imageUrl?: string };
   task2: { prompt: string };
+  accessCode?: string;
 };
 
 export function parseSkill(value: unknown): Skill {
