@@ -13,6 +13,8 @@ CREATE TABLE public.ielts_exams (
     examiner_avatar TEXT NOT NULL,
     examiner_voice TEXT NOT NULL,
     status TEXT DEFAULT 'published' CHECK (status IN ('draft', 'published')),
+    skill TEXT NOT NULL DEFAULT 'speaking' CHECK (skill IN ('listening', 'reading', 'writing', 'speaking')),
+    paper JSONB NOT NULL DEFAULT '{}'::jsonb,
     part1_topics JSONB NOT NULL DEFAULT '[]'::jsonb,
     part2_topic JSONB NOT NULL DEFAULT '{}'::jsonb,
     part3_questions JSONB NOT NULL DEFAULT '[]'::jsonb,

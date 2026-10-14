@@ -34,6 +34,7 @@ import {
 } from "@/data/exam_data";
 import toast from "react-hot-toast";
 import { supabase } from "@/lib/supabase";
+import { roomPathForSkill } from "@/lib/exam-skill";
 
 // Speech Recognition Type Shim
 interface IWindow extends Window {
@@ -110,6 +111,17 @@ export default function ExamRoomPage() {
   // Helper: Map examiner profile to authentic Native Neural Examiner Voice
   const resolveExaminerVoice = (dataSet?: ExamDataSet): string => {
     const targetData = dataSet || currentExamData;
+    const explicit = (targetData?.examinerVoice || "").trim().toLowerCase();
+    const knownVoices = [
+      "en-GB-RyanNeural",
+      "en-GB-SoniaNeural",
+      "en-GB-ThomasNeural",
+      "en-AU-NatashaNeural",
+      "en-AU-WilliamMultilingualNeural",
+      "en-US-GuyNeural",
+    ];
+    const matchedVoice = knownVoices.find((voice) => voice.toLowerCase() === explicit);
+    if (matchedVoice) return matchedVoice;
     const name = (targetData?.examinerName || "").toLowerCase();
     const role = (targetData?.examinerRole || "").toLowerCase();
     const voice = (targetData?.examinerVoice || "").toLowerCase();
@@ -261,6 +273,11 @@ export default function ExamRoomPage() {
                 
               if (error) throw error;
               if (data) {
+                const skill = typeof data.skill === "string" ? data.skill : "speaking";
+                if (skill === "listening" || skill === "reading" || skill === "writing") {
+                  router.replace(roomPathForSkill(skill));
+                  return;
+                }
                 chosenData = {
                   id: data.id,
                   title: data.title,

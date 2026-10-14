@@ -29,7 +29,8 @@ import {
   LogOut,
   Lock,
 } from "lucide-react";
-import { EXAM_DATA_SETS, ExamDataSet } from "@/data/exam_data";
+import { EXAM_DATA_SETS } from "@/data/exam_data";
+import { SKILL_LABEL, parseSkill, roomPathForSkill, type Skill } from "@/lib/exam-skill";
 import toast from "react-hot-toast";
 import { supabase } from "@/lib/supabase";
 import ExamAuthModal, { CandidateSession } from "@/components/ExamAuthModal";
@@ -38,6 +39,11 @@ export default function ExamSetupPage() {
   const router = useRouter();
   
   const [availableExams, setAvailableExams] = useState(EXAM_DATA_SETS);
+  const [examSkills, setExamSkills] = useState<Record<string, Skill>>(() => {
+    const initial: Record<string, Skill> = {};
+    for (const exam of EXAM_DATA_SETS) initial[exam.id] = "speaking";
+    return initial;
+  });
   const [isLoadingExams, setIsLoadingExams] = useState(true);
 
   // Lấy đề thi từ Supabase (nếu có cấu hình)
@@ -49,13 +55,30 @@ export default function ExamSetupPage() {
       }
       
       try {
-        const { data, error } = await supabase
+        const withSkill = await supabase
           .from("ielts_exams")
-          .select("id, title, examiner_name")
+          .select("id, title, examiner_name, skill")
           .eq("status", "published")
           .order("created_at", { ascending: false });
 
+        let data = withSkill.data as Array<{ id: string; title: string; examiner_name: string | null; skill?: string | null }> | null;
+        let error = withSkill.error;
+        if (error) {
+          const plain = await supabase
+            .from("ielts_exams")
+            .select("id, title, examiner_name")
+            .eq("status", "published")
+            .order("created_at", { ascending: false });
+          data = (plain.data ?? []).map((row) => ({ ...row, skill: "speaking" }));
+          error = plain.error;
+        }
+
         if (!error && data && data.length > 0) {
+          const skillMap: Record<string, Skill> = {};
+          for (const exam of EXAM_DATA_SETS) skillMap[exam.id] = "speaking";
+          for (const dbExam of data) skillMap[dbExam.id] = parseSkill(dbExam.skill);
+          setExamSkills(skillMap);
+
           // De-duplicate with local EXAM_DATA_SETS
           const existingIds = new Set(data.map((d) => d.id));
           const localRemaining = EXAM_DATA_SETS.filter((item) => !existingIds.has(item.id));
@@ -709,6 +732,10 @@ export default function ExamSetupPage() {
                   .map((exam) => (
                     <div 
                       key={exam.id}
+                      data-testid="exam-card"
+                      data-exam-id={exam.id}
+                      data-skill={examSkills[exam.id] ?? "speaking"}
+                      data-room={roomPathForSkill(examSkills[exam.id])}
                       onClick={() => handleExamSelect(exam.id)}
                       className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition cursor-pointer overflow-hidden flex flex-col group"
                     >
@@ -716,8 +743,13 @@ export default function ExamSetupPage() {
                         <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700">
                           <Mic className="w-6 h-6" />
                         </div>
-                        <span className="px-3 py-1 bg-white text-blue-700 font-bold text-[10px] uppercase tracking-wider rounded-full shadow-sm border border-slate-100">
-                          {exam.id.startsWith("static") ? "Forecast" : "Actual Test"}
+                        <span className="flex items-center gap-2">
+                          <span className="px-3 py-1 bg-white text-slate-700 font-bold text-[10px] uppercase tracking-wider rounded-full shadow-sm border border-slate-100">
+                            {SKILL_LABEL[examSkills[exam.id] ?? "speaking"]}
+                          </span>
+                          <span className="px-3 py-1 bg-white text-blue-700 font-bold text-[10px] uppercase tracking-wider rounded-full shadow-sm border border-slate-100">
+                            {exam.id.startsWith("static") ? "Forecast" : "Actual Test"}
+                          </span>
                         </span>
                       </div>
                       <div className="p-5 flex-1 flex flex-col">
@@ -1064,6 +1096,8 @@ export default function ExamSetupPage() {
                 <button
                   type="button"
                   disabled={!isAllReady}
+                  data-testid="start-test"
+                  data-room={roomPathForSkill(examSkills[selectedExamId])}
                   onClick={() => {
                     // Store candidate info in sessionStorage for the exam room
                     if (typeof window !== "undefined") {
@@ -1078,7 +1112,7 @@ export default function ExamSetupPage() {
                         })
                       );
                     }
-                    router.push("/exam/room");
+                    router.push(roomPathForSkill(examSkills[selectedExamId]));
                   }}
                   className="inline-flex items-center gap-2.5 px-8 py-4 rounded-full bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold text-sm sm:text-base shadow-lg shadow-emerald-600/25 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
