@@ -6,6 +6,7 @@ import {
   loginErrorCode,
   matchAdminRoster,
   normalizePhone,
+  phoneLookupKeys,
   verifyAdminPhonePin,
 } from "./admin-roster";
 
@@ -113,5 +114,22 @@ describe("live sheet check", () => {
     });
     assert.deepEqual(mismatch, { ok: false, reason: "mismatch" });
     assert.equal(loginErrorCode("mismatch"), "mismatch");
+  });
+
+  it("tries the phone again without one leading zero when the sheet stored it as a number", async () => {
+    assert.deepEqual(phoneLookupKeys("0900111222"), ["0900111222", "900111222"]);
+    const bodies: string[] = [];
+    const fetchImpl: typeof fetch = async (_input, init) => {
+      const body = typeof init?.body === "string" ? init.body : "";
+      bodies.push(body);
+      const parsed = JSON.parse(body) as { phone?: string };
+      return new Response(JSON.stringify({ match: parsed.phone === "900111222" }), { status: 200 });
+    };
+    const ok = await verifyAdminPhonePin("0900.111.222", "Pin-A", {
+      env: { ADMIN_ROSTER_SCRIPT_URL: scriptUrl },
+      fetchImpl,
+    });
+    assert.deepEqual(ok, { ok: true });
+    assert.equal(bodies.length, 2);
   });
 });
