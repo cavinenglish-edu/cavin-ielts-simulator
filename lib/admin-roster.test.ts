@@ -1,16 +1,11 @@
 import assert from "node:assert/strict";
-import { generateKeyPairSync } from "crypto";
 import { describe, it } from "node:test";
 import {
   ADMIN_PHONE_HEADER,
   ADMIN_PIN_HEADER,
-  ADMIN_ROSTER_SPREADSHEET_ID,
   loginErrorCode,
   matchAdminRoster,
   normalizePhone,
-  normalizePrivateKey,
-  rosterCredentialStatus,
-  rosterValuesUrl,
   verifyAdminPhonePin,
 } from "./admin-roster";
 
@@ -67,101 +62,56 @@ describe("admin roster match", () => {
     assert.equal(missing.ok, false);
     if (!missing.ok) assert.equal(missing.reason, "bad_sheet");
   });
-
-  it("finds the columns wherever they sit", () => {
-    const values = [[ADMIN_PIN_HEADER, ADMIN_PHONE_HEADER], ["abc", "0988.111.222"]];
-    assert.equal(isMatch(values, "0988111222", "abc"), true);
-  });
 });
 
-describe("admin roster credentials", () => {
-  const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
-  const pem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+describe("live sheet check", () => {
+  const scriptUrl = "https://script.google.com/macros/s/example/exec";
 
-  it("treats a missing Google credential as not configured", () => {
-    assert.equal(rosterCredentialStatus({}), "missing_credential");
-    assert.equal(rosterCredentialStatus({ GOOGLE_SERVICE_ACCOUNT_EMAIL: "a@b.c" }), "invalid_credential");
-  });
-
-  it("accepts a JSON key and an escaped private key", () => {
-    const json = JSON.stringify({ client_email: "roster@example.iam.gserviceaccount.com", private_key: pem });
-    assert.equal(rosterCredentialStatus({ GOOGLE_SERVICE_ACCOUNT_JSON: json }), "ok");
-    const encoded = Buffer.from(json, "utf8").toString("base64");
-    assert.equal(rosterCredentialStatus({ GOOGLE_SERVICE_ACCOUNT_JSON: encoded }), "ok");
-    assert.equal(
-      rosterCredentialStatus({
-        GOOGLE_SERVICE_ACCOUNT_EMAIL: "roster@example.iam.gserviceaccount.com",
-        GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: JSON.stringify(pem).slice(1, -1),
-      }),
-      "ok",
-    );
-    assert.ok(normalizePrivateKey(JSON.stringify(pem).slice(1, -1)).includes("BEGIN PRIVATE KEY"));
-  });
-
-  it("does not send the phone or PIN to Google and fails closed without a credential", async () => {
+  it("does not call the sheet when the phone or PIN is empty", async () => {
     let calls = 0;
     const fetchImpl: typeof fetch = async () => {
       calls += 1;
-      throw new Error("network");
+      throw new Error("should not fetch");
     };
-    const missing = await verifyAdminPhonePin("0900111111", "1111", { env: {}, fetchImpl });
-    assert.deepEqual(missing, { ok: false, reason: "missing_credential" });
-    assert.equal(calls, 0);
-    assert.equal(loginErrorCode("missing_credential"), "sheet_config");
-
-    const empty = await verifyAdminPhonePin("----", "   ", { env: {}, fetchImpl });
+    const empty = await verifyAdminPhonePin("----", "   ", { env: { ADMIN_ROSTER_SCRIPT_URL: scriptUrl }, fetchImpl });
     assert.deepEqual(empty, { ok: false, reason: "empty" });
+    assert.equal(calls, 0);
   });
 
-  it("matches from the sheet response and never puts the PIN on the request URL", async () => {
+  it("fails closed when the web app URL is not configured", async () => {
+    const missing = await verifyAdminPhonePin("0900111111", "1111", {
+      env: { GOOGLE_SERVICE_ACCOUNT_JSON: "{\"client_email\":\"ignored\"}" },
+      fetchImpl: async () => {
+        throw new Error("should not fetch");
+      },
+    });
+    assert.deepEqual(missing, { ok: false, reason: "unavailable" });
+    assert.equal(loginErrorCode("unavailable"), "unavailable");
+  });
+
+  it("accepts only an explicit match from the live script", async () => {
     const phone = "0900555666";
     const pin = "Seeding-9";
-    const urls: string[] = [];
+    const seen: string[] = [];
     const fetchImpl: typeof fetch = async (input, init) => {
-      const url = String(input);
-      urls.push(url);
-      assert.equal(url.includes(pin), false);
-      assert.equal(url.includes(phone), false);
+      seen.push(String(input));
+      assert.equal(String(input), scriptUrl);
       const body = typeof init?.body === "string" ? init.body : "";
-      assert.equal(body.includes(pin), false);
-      assert.equal(body.includes(phone), false);
-      if (url.includes("oauth2.googleapis.com")) {
-        return new Response(JSON.stringify({ access_token: "token-test" }), { status: 200 });
-      }
-      assert.equal(url.includes(ADMIN_ROSTER_SPREADSHEET_ID), true);
-      assert.equal(url, rosterValuesUrl());
-      assert.equal((init?.headers as Record<string, string>).Authorization, "Bearer token-test");
-      return new Response(
-        JSON.stringify({ values: roster([["1", "Chi", "0900.555.666", pin]]) }),
-        { status: 200 },
-      );
+      const parsed = JSON.parse(body) as { phone?: string; pin?: string };
+      assert.equal(parsed.phone, phone);
+      assert.equal(parsed.pin, pin);
+      return new Response(JSON.stringify({ match: true }), { status: 200 });
     };
-
-    const ok = await verifyAdminPhonePin(phone, pin, {
-      env: {
-        GOOGLE_SERVICE_ACCOUNT_EMAIL: "roster@example.iam.gserviceaccount.com",
-        GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: pem,
-      },
-      fetchImpl,
-    });
+    const ok = await verifyAdminPhonePin(phone, pin, { env: { ADMIN_ROSTER_SCRIPT_URL: scriptUrl }, fetchImpl });
     assert.deepEqual(ok, { ok: true });
-    assert.equal(urls.length, 2);
+    assert.deepEqual(seen, [scriptUrl]);
 
-    const denied: typeof fetch = async (input) => {
-      const url = String(input);
-      if (url.includes("oauth2.googleapis.com")) {
-        return new Response(JSON.stringify({ access_token: "token-test" }), { status: 200 });
-      }
-      return new Response("{}", { status: 403 });
-    };
-    const forbidden = await verifyAdminPhonePin(phone, pin, {
-      env: {
-        GOOGLE_SERVICE_ACCOUNT_EMAIL: "roster@example.iam.gserviceaccount.com",
-        GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: pem,
-      },
+    const denied: typeof fetch = async () => new Response(JSON.stringify({ match: false }), { status: 200 });
+    const mismatch = await verifyAdminPhonePin(phone, pin, {
+      env: { ADMIN_ROSTER_SCRIPT_URL: scriptUrl },
       fetchImpl: denied,
     });
-    assert.deepEqual(forbidden, { ok: false, reason: "forbidden" });
-    assert.equal(loginErrorCode("forbidden"), "sheet_forbidden");
+    assert.deepEqual(mismatch, { ok: false, reason: "mismatch" });
+    assert.equal(loginErrorCode("mismatch"), "mismatch");
   });
 });

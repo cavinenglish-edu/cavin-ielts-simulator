@@ -4,7 +4,6 @@ import { ExamList } from "@/app/admin/exam-list";
 import { LoginForm } from "@/app/admin/login-form";
 import { PaperForm } from "@/app/admin/paper-form";
 import { isAdminAuthenticated } from "@/lib/admin-cookie";
-import { rosterCredentialStatus } from "@/lib/admin-roster";
 import { getExam, listExams, missingSupabaseEnv, type ExamListItem } from "@/lib/exam-admin";
 import type { PaperInput } from "@/lib/ielts-paper";
 
@@ -48,7 +47,6 @@ async function AdminBody({ searchParams }: { searchParams: Promise<AdminSearch> 
   const errorCode = typeof params.error === "string" ? params.error : undefined;
   const passwordMissing = !process.env.ADMIN_PASSWORD;
   const supabaseMissing = missingSupabaseEnv();
-  const rosterStatus = rosterCredentialStatus();
 
   if (passwordMissing) {
     return <ConfigAlert missing={["ADMIN_PASSWORD", ...supabaseMissing]} />;
@@ -59,9 +57,6 @@ async function AdminBody({ searchParams }: { searchParams: Promise<AdminSearch> 
     return (
       <div className="space-y-6">
         {supabaseMissing.length > 0 ? <ConfigAlert missing={supabaseMissing} /> : null}
-        {rosterStatus !== "ok" && errorCode !== "sheet_config" && errorCode !== "sheet_invalid" ? (
-          <RosterAlert status={rosterStatus} />
-        ) : null}
         <LoginForm errorCode={errorCode} />
       </div>
     );
@@ -106,19 +101,6 @@ async function AdminBody({ searchParams }: { searchParams: Promise<AdminSearch> 
         </div>
         <ExamList items={items} activeId={editId} unconfigured={supabaseMissing.length > 0 || Boolean(listMessage)} />
       </div>
-    </div>
-  );
-}
-
-function RosterAlert({ status }: { status: "missing_credential" | "invalid_credential" }) {
-  const message =
-    status === "missing_credential"
-      ? "Máy chủ chưa có tài khoản Google để đọc danh sách quản trị. Thêm GOOGLE_SERVICE_ACCOUNT_JSON, rồi chia sẻ sheet «Thông tin chung của Admin» cho email của tài khoản dịch vụ với quyền Viewer. Không công khai sheet."
-      : "Khóa tài khoản dịch vụ không hợp lệ. GOOGLE_SERVICE_ACCOUNT_JSON cần client_email và private_key.";
-  return (
-    <div role="alert" data-testid="roster-banner" className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-sm text-amber-950">
-      <p className="font-bold">Chưa đọc được danh sách quản trị</p>
-      <p className="mt-2">{message}</p>
     </div>
   );
 }
