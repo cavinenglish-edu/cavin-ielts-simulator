@@ -154,7 +154,8 @@ export function parseSpeakingMark(raw: string): SpeakingMark | null {
 
 async function complete(prompt: string, key: string): Promise<string | null> {
   try {
-    const modelName = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+    // gemini-2.5-flash is closed to new keys. GEMINI_MODEL can override this.
+    const modelName = process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
     const ai = new GoogleGenerativeAI(key);
     const model = ai.getGenerativeModel({
       model: modelName,
