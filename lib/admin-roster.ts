@@ -76,6 +76,33 @@ export async function verifyAdminPhonePin(
   if (!url) return { ok: false, reason: "unavailable" };
 
   const fetchImpl = options?.fetchImpl ?? fetch;
+  let sawMismatch = false;
+  for (const candidate of phoneLookupKeys(phone)) {
+    const result = await askRosterScript(url, candidate, pin, fetchImpl);
+    if (result.ok) return result;
+    if (result.reason === "mismatch") {
+      sawMismatch = true;
+      continue;
+    }
+    return result;
+  }
+  return { ok: false, reason: sawMismatch ? "mismatch" : "unavailable" };
+}
+
+/** Sheets stores some phone cells as numbers, which drops a single leading 0. */
+export function phoneLookupKeys(digits: string): string[] {
+  const keys = [digits];
+  if (digits.startsWith("0") && digits.length > 1) keys.push(digits.slice(1));
+  else if (digits.length > 0 && digits.length < MAX_PHONE_DIGITS) keys.push(`0${digits}`);
+  return [...new Set(keys)];
+}
+
+async function askRosterScript(
+  url: string,
+  phone: string,
+  pin: string,
+  fetchImpl: typeof fetch,
+): Promise<PhonePinResult> {
   let response: Response;
   try {
     response = await fetchImpl(url, {

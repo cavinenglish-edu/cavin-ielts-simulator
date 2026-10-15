@@ -39,7 +39,7 @@ function doPost(e) {
       var rowPhone = digits_(row[phoneCol]);
       var rowPin = row[pinCol] == null ? "" : String(row[pinCol]).trim();
       if (!rowPhone || !rowPin) continue;
-      if (rowPhone === phone && rowPin === pin) return json_({ match: true });
+      if (phonesEqual_(rowPhone, phone) && rowPin === pin) return json_({ match: true });
     }
     return json_({ match: false });
   } catch (err) {
@@ -55,6 +55,13 @@ function rosterSheet_() {
 
 function digits_(value) {
   return String(value == null ? "" : value).replace(/\D/g, "");
+}
+
+function phonesEqual_(left, right) {
+  if (left === right) return true;
+  var a = left.charAt(0) === "0" ? left.slice(1) : left;
+  var b = right.charAt(0) === "0" ? right.slice(1) : right;
+  return a.length > 0 && a === b;
 }
 
 function json_(payload) {
