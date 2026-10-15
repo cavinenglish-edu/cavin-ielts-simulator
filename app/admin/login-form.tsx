@@ -3,18 +3,13 @@ const ERRORS: Record<string, string> = {
   empty: "Nhập đủ số điện thoại và mã PIN.",
   rate: "Bạn đã nhập sai quá nhiều lần. Thử lại sau ít phút.",
   config: "Thiếu biến môi trường ADMIN_PASSWORD trên server. Không thể tạo phiên đăng nhập.",
-  sheet_config:
-    "Máy chủ chưa có tài khoản Google để đọc danh sách quản trị. Thêm GOOGLE_SERVICE_ACCOUNT_JSON, rồi chia sẻ sheet «Thông tin chung của Admin» cho email của tài khoản dịch vụ với quyền Viewer. Không công khai sheet.",
-  sheet_invalid:
-    "Khóa tài khoản dịch vụ không hợp lệ. GOOGLE_SERVICE_ACCOUNT_JSON cần client_email và private_key, hoặc dùng GOOGLE_SERVICE_ACCOUNT_EMAIL cùng GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.",
-  sheet_forbidden:
-    "Tài khoản dịch vụ chưa được xem sheet quản trị. Hãy chia sẻ spreadsheet cho client_email trong khóa, quyền Viewer. Không công khai sheet.",
-  sheet_shape: "Sheet quản trị thiếu cột Số Điện Thoại hoặc Mã PIN đăng nhập AI Seeding.",
-  sheet_down: "Không đọc được danh sách quản trị lúc này. Thử lại sau ít phút.",
+  unavailable: "Không kiểm tra được danh sách quản trị lúc này.",
 };
 
+const LEGACY_UNAVAILABLE = new Set(["sheet_config", "sheet_invalid", "sheet_forbidden", "sheet_shape", "sheet_down"]);
+
 export function LoginForm({ errorCode }: { errorCode?: string }) {
-  const message = errorCode ? ERRORS[errorCode] : undefined;
+  const message = errorCode ? ERRORS[errorCode] ?? (LEGACY_UNAVAILABLE.has(errorCode) ? ERRORS.unavailable : undefined) : undefined;
   return (
     <form action="/admin/login" method="post" className="max-w-md mx-auto bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
       <h1 className="text-xl font-bold text-slate-900">Đăng nhập quản trị</h1>
