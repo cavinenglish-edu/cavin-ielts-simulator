@@ -1,8 +1,16 @@
 const ERRORS: Record<string, string> = {
-  password: "Mật khẩu quản trị không đúng.",
-  empty: "Nhập mật khẩu quản trị.",
+  mismatch: "Số điện thoại hoặc mã PIN không đúng.",
+  empty: "Nhập đủ số điện thoại và mã PIN.",
   rate: "Bạn đã nhập sai quá nhiều lần. Thử lại sau ít phút.",
-  config: "Thiếu biến môi trường ADMIN_PASSWORD trên server. Không thể đăng nhập quản trị.",
+  config: "Thiếu biến môi trường ADMIN_PASSWORD trên server. Không thể tạo phiên đăng nhập.",
+  sheet_config:
+    "Máy chủ chưa có tài khoản Google để đọc danh sách quản trị. Thêm GOOGLE_SERVICE_ACCOUNT_JSON, rồi chia sẻ sheet «Thông tin chung của Admin» cho email của tài khoản dịch vụ với quyền Viewer. Không công khai sheet.",
+  sheet_invalid:
+    "Khóa tài khoản dịch vụ không hợp lệ. GOOGLE_SERVICE_ACCOUNT_JSON cần client_email và private_key, hoặc dùng GOOGLE_SERVICE_ACCOUNT_EMAIL cùng GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.",
+  sheet_forbidden:
+    "Tài khoản dịch vụ chưa được xem sheet quản trị. Hãy chia sẻ spreadsheet cho client_email trong khóa, quyền Viewer. Không công khai sheet.",
+  sheet_shape: "Sheet quản trị thiếu cột Số Điện Thoại hoặc Mã PIN đăng nhập AI Seeding.",
+  sheet_down: "Không đọc được danh sách quản trị lúc này. Thử lại sau ít phút.",
 };
 
 export function LoginForm({ errorCode }: { errorCode?: string }) {
@@ -11,17 +19,33 @@ export function LoginForm({ errorCode }: { errorCode?: string }) {
     <form action="/admin/login" method="post" className="max-w-md mx-auto bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
       <h1 className="text-xl font-bold text-slate-900">Đăng nhập quản trị</h1>
       <p className="text-sm text-slate-600 mt-2 mb-6">
-        Mật khẩu này chỉ dành cho người ra đề. Mã PIN thí sinh không mở được trang này.
+        Mỗi quản trị viên dùng số điện thoại và mã PIN riêng. Mã PIN thí sinh không mở được trang này.
       </p>
-      <label htmlFor="admin-password" className="block text-xs font-bold text-slate-700 uppercase mb-2">
-        Mật khẩu quản trị
+      <label htmlFor="admin-phone" className="block text-xs font-bold text-slate-700 uppercase mb-2">
+        Số điện thoại
       </label>
       <input
-        id="admin-password"
-        name="password"
+        id="admin-phone"
+        name="phone"
+        type="tel"
+        inputMode="tel"
+        autoComplete="tel"
+        autoCapitalize="off"
+        data-testid="admin-phone"
+        className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+      />
+      <label htmlFor="admin-pin" className="block text-xs font-bold text-slate-700 uppercase mb-2 mt-4">
+        Mã PIN
+      </label>
+      <input
+        id="admin-pin"
+        name="pin"
         type="password"
-        autoComplete="current-password"
-        data-testid="admin-password"
+        autoComplete="off"
+        autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
+        data-testid="admin-pin"
         className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
       />
       {message ? (

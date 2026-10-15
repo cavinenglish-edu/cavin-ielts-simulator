@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { ADMIN_COOKIE, createAdminSessionToken, isRateLimited, passwordsMatch, recordFailure } from "@/lib/admin-session";
 import { adminCookieOptions } from "@/lib/admin-cookie";
+import { loginErrorCode, verifyAdminPhonePin } from "@/lib/admin-roster";
+import { ADMIN_COOKIE, createAdminSessionToken, isRateLimited, recordFailure } from "@/lib/admin-session";
 
 const loginFailures = new Map<string, number[]>();
 
@@ -17,18 +18,18 @@ export async function POST(request: Request) {
   }
 
   const form = await request.formData();
-  const password = String(form.get("password") ?? "");
+  const phone = String(form.get("phone") ?? "");
+  const pin = String(form.get("pin") ?? "");
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
   const now = Date.now();
   if (isRateLimited(loginFailures, ip, now)) {
     return NextResponse.redirect(adminUrl(request, "rate"), 303);
   }
-  if (!password) {
-    return NextResponse.redirect(adminUrl(request, "empty"), 303);
-  }
-  if (!passwordsMatch(password, secret)) {
-    recordFailure(loginFailures, ip, now);
-    return NextResponse.redirect(adminUrl(request, "password"), 303);
+
+  const result = await verifyAdminPhonePin(phone, pin);
+  if (!result.ok) {
+    if (result.reason === "mismatch") recordFailure(loginFailures, ip, now);
+    return NextResponse.redirect(adminUrl(request, loginErrorCode(result.reason)), 303);
   }
 
   const response = NextResponse.redirect(adminUrl(request), 303);
