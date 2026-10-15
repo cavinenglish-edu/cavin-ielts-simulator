@@ -1,7 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 
 const MEDIA = "/cursor/stores/bc-d6d6e118-e6a0-46c1-ad83-078ea6c49ef9/media";
-const ACCESS_CODE = "482913";
 
 function parseClock(text: string): number {
   const [minutes, seconds] = text.trim().split(":").map((part) => Number(part));
@@ -103,22 +102,69 @@ test("writing url during reading returns to reading", async ({ page }) => {
   await page.screenshot({ path: `${MEDIA}/writing-guard.png` });
 });
 
-test("start test stays disabled until the access code and volume slider", async ({ page }) => {
-  const started = await page.request.post("/api/e2e/bootstrap", { data: { phase: "pretest" } });
-  expect(started.ok()).toBeTruthy();
-  await page.goto("/exam/check");
+test("empty library explains random draw and mix", async ({ page }) => {
+  await page.goto("/exam?library=empty");
+  await expect(page.getByTestId("exam-library-empty")).toBeVisible();
+  await expect(page.getByTestId("random-exam-empty")).toContainText("Đề thi Ngẫu nhiên");
+  await expect(page.getByTestId("practice-mix-empty")).toBeVisible();
+  await expect(page.getByTestId("access-code")).toHaveCount(0);
+  await expect(page.getByText("Travel, Journeys")).toHaveCount(0);
+  await expect(page.getByTestId("exam-card")).toHaveCount(0);
+});
+
+test("pin opens an actual paper without an access code", async ({ page }) => {
+  await page.goto("/exam");
+  await page.getByTestId("tab-actual").click();
+  await page.getByText("Actual Harbour Sitting").click();
+  await page.getByTestId("pin-input").fill("1234");
+  await page.getByTestId("pin-submit").click();
+  await expect(page).toHaveURL(/\/exam\/check/);
   await expect(page.getByTestId("candidate-info")).toContainText("NGUYEN VAN A");
-  await expect(page.getByTestId("candidate-info")).toContainText("Chưa có trên hồ sơ");
+  await expect(page.getByTestId("access-code")).toHaveCount(0);
+  await expect(page.getByTestId("headphone-play")).toBeVisible();
   const start = page.getByTestId("start-test");
-  await expect(start).toBeDisabled();
-  await page.getByTestId("volume-slider").fill("45");
-  await expect(start).toBeDisabled();
-  await page.getByTestId("access-code").fill("000000");
-  await page.getByTestId("access-submit").click();
-  await expect(page.getByRole("status")).toContainText("không đúng");
-  await expect(start).toBeDisabled();
-  await page.getByTestId("access-code").fill(ACCESS_CODE);
-  await page.getByTestId("access-submit").click();
   await expect(start).toBeEnabled();
-  await page.getByTestId("headphone-play").click();
+  await start.click();
+  await expect(page).toHaveURL(/\/exam\/listening/);
+});
+
+test("forecast stays separate from actual and luyen tron", async ({ page }) => {
+  await page.goto("/exam");
+  await expect(page.getByTestId("practice-mix")).toBeVisible();
+  await page.getByTestId("tab-forecast").click();
+  await expect(page.getByText("Forecast: Daily Routines")).toBeVisible();
+  await expect(page.getByText("Actual Harbour Sitting")).toHaveCount(0);
+  await expect(page.getByTestId("practice-mix-empty")).toBeVisible();
+  await page.getByTestId("tab-actual").click();
+  await expect(page.getByText("Actual Harbour Sitting")).toBeVisible();
+  await expect(page.getByText("Forecast: Daily Routines")).toHaveCount(0);
+  await expect(page.getByTestId("practice-mix")).toBeVisible();
+});
+
+test("empty forecast tab waits for admin", async ({ page }) => {
+  await page.goto("/exam?library=empty");
+  await page.getByTestId("tab-forecast").click();
+  await expect(page.getByTestId("forecast-empty")).toContainText("Admin xuất bản");
+});
+
+test("part 2 prepares in silence, then records", async ({ page }) => {
+  const started = await page.request.post("/api/e2e/bootstrap", { data: { phase: "speaking" } });
+  expect(started.ok()).toBeTruthy();
+  await page.goto("/exam/room?preview=prep");
+  await expect(page.getByTestId("speaking-part2-prep")).toBeVisible();
+  await expect(page.getByTestId("speaking-part2-text")).toContainText("Describe a harbour or river you know.");
+  await expect(page.getByTestId("speaking-part-progress")).toHaveText("Part 2");
+  await expect(page.getByTestId("speaking-record-dot")).toHaveCount(0);
+  await expect(page.getByTestId("recording-leave-guard")).toContainText("Bản ghi sẽ mất");
+  await page.screenshot({ path: `${MEDIA}/speaking-part2-prep.png`, fullPage: true });
+
+  page.on("dialog", (dialog) => {
+    void dialog.accept();
+  });
+  await page.goto("/exam/room?preview=record");
+  await expect(page.getByTestId("speaking-part2-recording")).toBeVisible();
+  await expect(page.getByTestId("speaking-record-dot")).toBeVisible();
+  await expect(page.getByTestId("speaking-level-meter")).toBeVisible();
+  await expect(page.getByTestId("speaking-part2-timer")).toBeVisible();
+  await page.screenshot({ path: `${MEDIA}/speaking-part2-recording.png`, fullPage: true });
 });

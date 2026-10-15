@@ -32,13 +32,6 @@ export function verifyExamSession(token: string, secret: string, now = Date.now(
   }
 }
 
-export function codesMatch(input: string, expected: string): boolean {
-  const left = Buffer.from(input);
-  const right = Buffer.from(expected);
-  if (left.length === 0 || left.length !== right.length) return false;
-  return timingSafeEqual(left, right);
-}
-
 export function examCookieOptions(maxAge = 6 * 60 * 60) {
   return {
     httpOnly: true as const,

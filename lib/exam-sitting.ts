@@ -1,10 +1,11 @@
+import { PRACTICE_MIX_ID } from "@/lib/exam-catalog";
 import { LISTENING_SECONDS, READING_SECONDS, WRITING_SECONDS } from "@/lib/exam-skill";
 
 export const REVIEW_SECONDS = 2 * 60;
 export const SITTING_TTL_MS = 6 * 60 * 60 * 1000;
 export const FIXTURE_PAPER_ID = "fixture-full";
 
-export const EXAM_SECTIONS = ["pretest", "listening", "reading", "writing", "done"] as const;
+export const EXAM_SECTIONS = ["pretest", "listening", "reading", "writing", "speaking", "done"] as const;
 export type ExamSection = (typeof EXAM_SECTIONS)[number];
 export type ListeningPhase = "audio" | "review";
 
@@ -13,10 +14,17 @@ export const SECTION_PATH: Record<ExamSection, string> = {
   listening: "/exam/listening",
   reading: "/exam/reading",
   writing: "/exam/writing",
+  speaking: "/exam/room",
   done: "/exam/receipt",
 };
 
-const GUARDED_PATHS = new Set(Object.values(SECTION_PATH));
+const GUARDED_PATHS = new Set<string>([
+  SECTION_PATH.pretest,
+  SECTION_PATH.listening,
+  SECTION_PATH.reading,
+  SECTION_PATH.writing,
+  SECTION_PATH.done,
+]);
 
 export type ExamSession = {
   v: 1;
@@ -200,6 +208,12 @@ export function advanceSitting(
   }
   if (session.section === "writing") {
     if (left > 0) return { ok: false, reason: "too-early" };
+    if (session.paperId === PRACTICE_MIX_ID) {
+      return { ok: true, session: enterSection(session, "done", 0, now) };
+    }
+    return { ok: true, session: enterSection(session, "speaking", 0, now) };
+  }
+  if (session.section === "speaking") {
     return { ok: true, session: enterSection(session, "done", 0, now) };
   }
   return { ok: false, reason: "finished" };

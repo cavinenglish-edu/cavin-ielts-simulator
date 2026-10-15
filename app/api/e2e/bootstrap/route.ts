@@ -8,7 +8,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   const body: unknown = await request.json().catch(() => null);
-  const phase = body && typeof body === "object" && "phase" in body && body.phase === "pretest" ? "pretest" : "listening";
+  const requested = body && typeof body === "object" && "phase" in body ? body.phase : "listening";
+  const phase = requested === "pretest" || requested === "speaking" ? requested : "listening";
   const paper = fixtureFullPaper();
   const now = Date.now();
   const base = pretestSession(
@@ -24,7 +25,9 @@ export async function POST(request: Request) {
   const session =
     phase === "pretest"
       ? { ...base, paperId: FIXTURE_PAPER_ID, accessGranted: false }
-      : beginListening({ ...base, paperId: FIXTURE_PAPER_ID, accessGranted: true }, paper.listeningSeconds, now);
+      : phase === "speaking"
+        ? { ...base, paperId: FIXTURE_PAPER_ID, section: "speaking" as const, accessGranted: true, durationSeconds: 0 }
+        : beginListening({ ...base, paperId: FIXTURE_PAPER_ID, accessGranted: true }, paper.listeningSeconds, now);
   await writeSession(session);
   return NextResponse.json({ session: publicSession(session) });
 }

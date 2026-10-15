@@ -29,100 +29,41 @@ import {
   LogOut,
   Lock,
 } from "lucide-react";
-import { EXAM_DATA_SETS } from "@/data/exam_data";
-import { SKILL_LABEL, parseSkill, roomPathForSkill, type Skill } from "@/lib/exam-skill";
+import { PRACTICE_MIX_ID, type LibraryPaper, type MixAvailability } from "@/lib/exam-catalog";
 import toast from "react-hot-toast";
-import { supabase } from "@/lib/supabase";
 import ExamAuthModal, { CandidateSession } from "@/components/ExamAuthModal";
 
 export default function ExamSetupPage() {
   const router = useRouter();
   
-  const [availableExams, setAvailableExams] = useState(EXAM_DATA_SETS);
-  const [examSkills, setExamSkills] = useState<Record<string, Skill>>(() => {
-    const initial: Record<string, Skill> = {};
-    for (const exam of EXAM_DATA_SETS) initial[exam.id] = "speaking";
-    return initial;
+  const [availableExams, setAvailableExams] = useState<LibraryPaper[]>([]);
+  const [mix, setMix] = useState<MixAvailability>({
+    ready: false,
+    message: "Luyện trộn cần ít nhất ba đề thật đã xuất bản, mỗi kỹ năng lấy từ một đề khác nhau.",
   });
   const [isLoadingExams, setIsLoadingExams] = useState(true);
 
-  // Lấy đề thi từ Supabase (nếu có cấu hình)
   useEffect(() => {
+    let cancelled = false;
     async function fetchExams() {
-      if (!supabase) {
-        setIsLoadingExams(false);
-        return;
-      }
-      
       try {
-        const withSkill = await supabase
-          .from("ielts_exams")
-          .select("id, title, examiner_name, skill")
-          .eq("status", "published")
-          .order("created_at", { ascending: false });
-
-        let data = withSkill.data as Array<{ id: string; title: string; examiner_name: string | null; skill?: string | null }> | null;
-        let error = withSkill.error;
-        if (error) {
-          const plain = await supabase
-            .from("ielts_exams")
-            .select("id, title, examiner_name")
-            .eq("status", "published")
-            .order("created_at", { ascending: false });
-          data = (plain.data ?? []).map((row) => ({ ...row, skill: "speaking" }));
-          error = plain.error;
-        }
-
-        if (!error && data && data.length > 0) {
-          const skillMap: Record<string, Skill> = {};
-          for (const exam of EXAM_DATA_SETS) skillMap[exam.id] = "speaking";
-          for (const dbExam of data) skillMap[dbExam.id] = parseSkill(dbExam.skill);
-          setExamSkills(skillMap);
-
-          // De-duplicate with local EXAM_DATA_SETS
-          const existingIds = new Set(data.map((d) => d.id));
-          const localRemaining = EXAM_DATA_SETS.filter((item) => !existingIds.has(item.id));
-
-          const formattedData = data.map((dbExam) => {
-            const localMatch = EXAM_DATA_SETS.find((l) => l.id === dbExam.id);
-            if (localMatch) return localMatch;
-            return {
-              id: dbExam.id,
-              title: dbExam.title,
-              category: "IELTS Actual Test",
-              season: "Forecast Quý 3-4 / 2026",
-              examinerName: dbExam.examiner_name || "Mr. David Harrison",
-              examinerVoice: "en-GB" as const,
-              examinerRole: "Senior IELTS Examiner",
-              part1: {
-                welcome: "Good afternoon. Welcome to the IELTS Speaking test.",
-                questions: [],
-              },
-              part2: {
-                id: "p2",
-                topicTitle: dbExam.title,
-                taskCardPrompt: "Describe a memorable experience.",
-                bulletPoints: ["When it happened", "Where you were", "What happened", "And explain why it was memorable"],
-                prepTimeSeconds: 60,
-                speakTimeSeconds: 120,
-              },
-              part3: {
-                topicIntro: "Let's discuss this topic further.",
-                questions: [],
-              },
-            };
-          });
-
-          setAvailableExams([...formattedData, ...localRemaining]);
-        }
+        const empty = new URLSearchParams(window.location.search).get("library") === "empty";
+        const response = await fetch(`/api/exam/library${empty ? "?empty=1" : ""}`, { cache: "no-store" });
+        const data = (await response.json()) as { papers?: LibraryPaper[]; mix?: MixAvailability };
+        if (cancelled) return;
+        setAvailableExams(Array.isArray(data.papers) ? data.papers : []);
+        if (data.mix) setMix(data.mix);
       } catch (err) {
-        console.warn("Supabase exams notice:", err);
+        console.warn("Library notice:", err);
+        if (!cancelled) setAvailableExams([]);
       } finally {
-        setIsLoadingExams(false);
+        if (!cancelled) setIsLoadingExams(false);
       }
     }
-
-    fetchExams();
+    void fetchExams();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Step tracker: 1: Candidate Info | 2: Sound Check | 3: Mic Check | 4: Ready
@@ -137,7 +78,7 @@ export default function ExamSetupPage() {
   const [candidateName, setCandidateName] = useState<string>("");
   const [candidateId, setCandidateId] = useState<string>("");
   const [targetBand, setTargetBand] = useState<string>("7.5+");
-  const [selectedExamId, setSelectedExamId] = useState<string>("random");
+  const [selectedExamId, setSelectedExamId] = useState<string>("");
   const [candidateNumber, setCandidateNumber] = useState<string>("VN102-849201");
 
   useEffect(() => {
@@ -175,27 +116,43 @@ export default function ExamSetupPage() {
     router.push("/exam/check");
   };
 
+  const selectedExam = availableExams.find((exam) => exam.id === selectedExamId);
+  const selectedIsComputer = selectedExamId === PRACTICE_MIX_ID || selectedExam?.mode === "computer";
+
   const handleExamSelect = (examId: string) => {
+    const exam = availableExams.find((item) => item.id === examId);
+    if (!exam) return;
+    if (exam.mode === "incomplete") {
+      toast.error("Đề này chưa đủ Nghe, Đọc và Viết trong cùng một đề.");
+      return;
+    }
     setSelectedExamId(examId);
-    const skill = examSkills[examId] ?? "speaking";
-    const computer = skill !== "speaking" && examId !== "random";
     if (!candidateSession || !candidateSession.isQualified) {
       setShowAuthModal(true);
       return;
     }
-    if (computer) {
+    if (exam.mode === "computer") {
       openComputerCheck(examId, candidateSession.name);
       return;
     }
     setShowCandidateModal(true);
   };
 
+  const handleMixSelect = () => {
+    if (!mix.ready) return;
+    setSelectedExamId(PRACTICE_MIX_ID);
+    if (!candidateSession || !candidateSession.isQualified) {
+      setShowAuthModal(true);
+      return;
+    }
+    openComputerCheck(PRACTICE_MIX_ID, candidateSession.name);
+  };
+
   const handleAuthSuccess = (candidate: CandidateSession) => {
     setCandidateSession(candidate);
     setCandidateName(candidate.name);
     toast.success(`Xác thực thành công! Chào mừng thí sinh ${candidate.name}`, { duration: 4000 });
-    const skill = examSkills[selectedExamId] ?? "speaking";
-    if (skill !== "speaking" && selectedExamId !== "random") {
+    if (selectedIsComputer && selectedExamId) {
       openComputerCheck(selectedExamId, candidate.name);
       return;
     }
@@ -672,8 +629,8 @@ export default function ExamSetupPage() {
 
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">Thư viện đề thi IELTS Speaking</h2>
-                <p className="text-sm text-slate-600 mt-1">Chọn một bộ đề thi (Full Mock Test) chuẩn format IDP/BC để bắt đầu luyện tập 1:1 với AI.</p>
+                <h2 className="text-2xl font-bold text-slate-900">Thư viện đề thi</h2>
+                <p className="text-sm text-slate-600 mt-1">Đề thật là một ca thi trên máy. Forecast là bộ chủ đề. Luyện trộn là bài luyện tập riêng.</p>
               </div>
               <div className="relative w-full sm:w-72">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -689,9 +646,33 @@ export default function ExamSetupPage() {
               </div>
             </div>
 
+            <section
+              data-testid="practice-mix"
+              className="mb-6 rounded-2xl border border-indigo-200 bg-indigo-50 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+            >
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-indigo-700">Luyện tập</p>
+                <h3 className="text-lg font-bold text-slate-900 mt-1">Luyện trộn</h3>
+                <p data-testid={mix.ready ? undefined : "practice-mix-empty"} className="text-sm text-slate-700 mt-1 max-w-2xl">
+                  {mix.message}
+                </p>
+              </div>
+              {mix.ready ? (
+                <button
+                  type="button"
+                  data-testid="practice-mix-start"
+                  onClick={handleMixSelect}
+                  className="shrink-0 px-5 py-3 rounded-xl bg-indigo-700 text-white text-sm font-bold"
+                >
+                  Bắt đầu luyện trộn
+                </button>
+              ) : null}
+            </section>
+
             {/* Filter Tabs */}
             <div className="flex items-center gap-2 border-b border-slate-200 mb-6 pb-2 overflow-x-auto no-scrollbar">
               <button
+                type="button"
                 onClick={() => setActiveTab("all")}
                 className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 whitespace-nowrap transition-colors ${
                   activeTab === "all" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-600 hover:text-slate-900"
@@ -700,20 +681,24 @@ export default function ExamSetupPage() {
                 Tất cả bộ đề
               </button>
               <button
-                onClick={() => setActiveTab("new")}
-                className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-                  activeTab === "new" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-600 hover:text-slate-900"
+                type="button"
+                data-testid="tab-actual"
+                onClick={() => setActiveTab("actual")}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 whitespace-nowrap transition-colors ${
+                  activeTab === "actual" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-600 hover:text-slate-900"
                 }`}
               >
-                🔥 Đề thi thật mới nhất (Actual)
+                Đề thật
               </button>
               <button
+                type="button"
+                data-testid="tab-forecast"
                 onClick={() => setActiveTab("forecast")}
-                className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 whitespace-nowrap transition-colors ${
                   activeTab === "forecast" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-600 hover:text-slate-900"
                 }`}
               >
-                📚 Bộ đề dự đoán (Forecast)
+                Forecast
               </button>
             </div>
 
@@ -722,36 +707,28 @@ export default function ExamSetupPage() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
                 <p>Đang tải thư viện đề thi từ máy chủ...</p>
               </div>
+            ) : activeTab === "forecast" && !availableExams.some((exam) => exam.catalog === "forecast") ? (
+              <div data-testid="forecast-empty" className="rounded-2xl border border-slate-200 bg-white p-8 text-slate-700">
+                <h3 className="text-lg font-bold text-slate-900">Chưa có bộ đề Forecast</h3>
+                <p className="mt-2 text-sm">Các bộ đề Forecast sẽ xuất hiện sau khi Admin xuất bản. Forecast chỉ gồm chủ đề Nói mà Admin nhập trong trang quản trị.</p>
+              </div>
+            ) : availableExams.length === 0 ? (
+              <div data-testid="exam-library-empty" className="rounded-2xl border border-slate-200 bg-white p-8 text-slate-700">
+                <h3 className="text-lg font-bold text-slate-900">Thư viện đang trống</h3>
+                <p className="mt-2 text-sm">Chưa có đề đã xuất bản. Quản trị viên có thể đăng đề mới từ trang Admin.</p>
+                <div data-testid="random-exam-empty" className="mt-6 rounded-xl border border-dashed border-slate-300 p-4">
+                  <h3 className="font-bold text-slate-900">Đề thi Ngẫu nhiên</h3>
+                  <p className="mt-1 text-sm">Không có đề để bốc. Hệ thống không mở lại các bộ đề Speaking đã gỡ.</p>
+                </div>
+              </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Random Exam Card */}
-                <div 
-                  onClick={() => handleExamSelect("random")}
-                  className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl border border-blue-500 shadow-md hover:shadow-xl transition cursor-pointer overflow-hidden flex flex-col group text-white"
-                >
-                  <div className="p-6 flex-1 flex flex-col">
-                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center mb-4 text-white">
-                      <Sparkles className="w-6 h-6" />
-                    </div>
-                    <h3 className="font-bold text-xl mb-2">Đề thi Ngẫu Nhiên</h3>
-                    <p className="text-blue-100 text-sm mb-4 line-clamp-2">
-                      Mô phỏng trải nghiệm bốc đề ngẫu nhiên trong phòng thi thật. Hệ thống sẽ chọn 1 đề bất kỳ trong kho dữ liệu.
-                    </p>
-                    <div className="mt-auto pt-4 border-t border-blue-500/50 flex items-center justify-between">
-                      <span className="text-sm font-medium text-blue-100">Full Mock Test</span>
-                      <button className="bg-white text-blue-700 px-4 py-1.5 rounded-full font-bold text-xs shadow-sm group-hover:scale-105 transition-transform">
-                        Bốc đề ngay
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
                 {availableExams
-                  .filter(exam => {
+                  .filter((exam) => {
                     const matchSearch = exam.title.toLowerCase().includes(searchQuery.toLowerCase());
                     if (!matchSearch) return false;
-                    if (activeTab === "new") return !exam.id.startsWith("static");
-                    if (activeTab === "forecast") return exam.id.startsWith("static");
+                    if (activeTab === "actual") return exam.catalog === "actual";
+                    if (activeTab === "forecast") return exam.catalog === "forecast";
                     return true;
                   })
                   .map((exam) => (
@@ -759,8 +736,8 @@ export default function ExamSetupPage() {
                       key={exam.id}
                       data-testid="exam-card"
                       data-exam-id={exam.id}
-                      data-skill={examSkills[exam.id] ?? "speaking"}
-                      data-room={roomPathForSkill(examSkills[exam.id])}
+                      data-catalog={exam.catalog}
+                      data-mode={exam.mode}
                       onClick={() => handleExamSelect(exam.id)}
                       className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition cursor-pointer overflow-hidden flex flex-col group"
                     >
@@ -770,10 +747,10 @@ export default function ExamSetupPage() {
                         </div>
                         <span className="flex items-center gap-2">
                           <span className="px-3 py-1 bg-white text-slate-700 font-bold text-[10px] uppercase tracking-wider rounded-full shadow-sm border border-slate-100">
-                            {SKILL_LABEL[examSkills[exam.id] ?? "speaking"]}
+                            {exam.mode === "computer" ? "Nghe · Đọc · Viết · Nói" : exam.mode === "speaking" ? "Nói" : "Chưa đủ đề"}
                           </span>
                           <span className="px-3 py-1 bg-white text-blue-700 font-bold text-[10px] uppercase tracking-wider rounded-full shadow-sm border border-slate-100">
-                            {exam.id.startsWith("static") ? "Forecast" : "Actual Test"}
+                            {exam.catalog === "forecast" ? "Forecast" : "Actual"}
                           </span>
                         </span>
                       </div>
@@ -782,8 +759,8 @@ export default function ExamSetupPage() {
                           {exam.title}
                         </h3>
                         <div className="flex items-center gap-3 text-xs text-slate-500 mb-4">
-                          <span className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-md"><BookOpen className="w-3.5 h-3.5" /> 3 Parts</span>
-                          <span className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-md"><Clock className="w-3.5 h-3.5" /> 11-14 Phút</span>
+                          <span className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-md"><BookOpen className="w-3.5 h-3.5" /> {exam.mode === "speaking" ? "3 Parts" : "Một đề"}</span>
+                          <span className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-md"><Clock className="w-3.5 h-3.5" /> {exam.mode === "speaking" ? "11-14 Phút" : "Nghe, Đọc, Viết, Nói"}</span>
                         </div>
                         <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between">
                           <div className="flex items-center gap-2">
@@ -1121,10 +1098,9 @@ export default function ExamSetupPage() {
                 <button
                   type="button"
                   disabled={!isAllReady}
-                  data-testid="start-test"
-                  data-room={roomPathForSkill(examSkills[selectedExamId])}
+                  data-testid="speaking-start"
+                  data-room="/exam/room"
                   onClick={() => {
-                    // Store candidate info in sessionStorage for the exam room
                     if (typeof window !== "undefined") {
                       sessionStorage.setItem(
                         "ielts_candidate",
@@ -1137,7 +1113,7 @@ export default function ExamSetupPage() {
                         })
                       );
                     }
-                    router.push(roomPathForSkill(examSkills[selectedExamId]));
+                    router.push(selectedIsComputer ? "/exam/check" : "/exam/room");
                   }}
                   className="inline-flex items-center gap-2.5 px-8 py-4 rounded-full bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold text-sm sm:text-base shadow-lg shadow-emerald-600/25 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
@@ -1279,9 +1255,9 @@ export default function ExamSetupPage() {
           onClose={() => setShowAuthModal(false)}
           onSuccess={handleAuthSuccess}
           selectedExamTitle={
-            selectedExamId === "random"
-              ? "Đề thi Ngẫu Nhiên (Random Mock Test)"
-              : availableExams.find((e) => e.id === selectedExamId)?.title
+            selectedExamId === PRACTICE_MIX_ID
+              ? "Luyện trộn (luyện tập)"
+              : selectedExam?.title
           }
         />
       </main>

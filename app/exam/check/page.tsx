@@ -14,10 +14,8 @@ export default function PretestPage() {
   const router = useRouter();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [info, setInfo] = useState<Info | null>(null);
-  const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
   const [volume, setVolume] = useState(80);
-  const [volumeMoved, setVolumeMoved] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [paperId, setPaperId] = useState("");
 
@@ -40,7 +38,9 @@ export default function PretestPage() {
               ? "/exam/reading"
               : data.session.section === "writing"
                 ? "/exam/writing"
-                : "/exam/receipt",
+                : data.session.section === "speaking"
+                  ? "/exam/room"
+                  : "/exam/receipt",
         );
         return;
       }
@@ -60,26 +60,12 @@ export default function PretestPage() {
     };
   }, [router]);
 
-  const accessGranted = Boolean(info?.accessGranted);
-
-  const submitCode = async () => {
-    setMessage("");
-    const response = await fetch("/api/exam/access", {
+  const start = async () => {
+    const response = await fetch("/api/exam/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paperId, code }),
+      body: JSON.stringify({ paperId }),
     });
-    const data = (await response.json()) as { error?: string; session?: PublicSession; title?: string };
-    if (!response.ok || !data.session) {
-      setMessage(data.error || "Mã truy cập không đúng.");
-      return;
-    }
-    setInfo({ ...data.session, title: data.title });
-    setMessage("Mã truy cập đúng. Hãy chỉnh âm lượng rồi bắt đầu.");
-  };
-
-  const start = async () => {
-    const response = await fetch("/api/exam/start", { method: "POST" });
     if (!response.ok) {
       const data = (await response.json()) as { error?: string };
       setMessage(data.error || "Chưa vào được phòng thi.");
@@ -95,7 +81,7 @@ export default function PretestPage() {
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Computer-delivered</p>
           <h1 className="mt-1 text-2xl font-black text-slate-900">Kiểm tra trước giờ thi</h1>
-          <p className="mt-2 text-sm text-slate-600">Listening, rồi Reading 60 phút, rồi Writing 60 phút. Speaking vẫn là phòng 1:1 riêng.</p>
+          <p className="mt-2 text-sm text-slate-600">Listening, rồi Reading, rồi Writing. Sau khi nộp Writing, phần Nói của chính đề này mở tiếp.</p>
         </div>
 
         <dl data-testid="candidate-info" className="grid sm:grid-cols-2 gap-4 text-sm">
@@ -125,31 +111,7 @@ export default function PretestPage() {
           </div>
         </dl>
 
-        <form
-          className="space-y-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void submitCode();
-          }}
-        >
-          <label htmlFor="access-code" className="block text-xs font-bold uppercase tracking-wide text-slate-700">
-            Access Code
-          </label>
-          <div className="flex flex-wrap gap-3">
-            <input
-              id="access-code"
-              data-testid="access-code"
-              value={code}
-              autoComplete="off"
-              onChange={(event) => setCode(event.target.value)}
-              className="flex-1 min-w-48 px-4 py-3 rounded-xl border border-slate-300 text-sm"
-            />
-            <button type="submit" data-testid="access-submit" className="px-5 py-3 rounded-xl bg-slate-900 text-white text-sm font-bold">
-              Xác nhận mã
-            </button>
-          </div>
-          <p className="text-sm text-slate-600" role="status">{message}</p>
-        </form>
+        <p className="text-sm text-slate-600" role="status">{message}</p>
 
         <div className="rounded-2xl border border-slate-200 p-5 space-y-4">
           <h2 className="font-bold text-slate-900">Tai nghe</h2>
@@ -189,7 +151,6 @@ export default function PretestPage() {
               onChange={(event) => {
                 const next = Number(event.target.value);
                 setVolume(next);
-                setVolumeMoved(true);
                 if (audioRef.current) audioRef.current.volume = next / 100;
               }}
               className="mt-2 w-full accent-blue-600"
@@ -200,7 +161,7 @@ export default function PretestPage() {
         <button
           type="button"
           data-testid="start-test"
-          disabled={!accessGranted || !volumeMoved}
+          disabled={!info || !paperId}
           onClick={() => void start()}
           className="px-6 py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold disabled:opacity-40"
         >

@@ -1,6 +1,8 @@
 import "server-only";
-import { fixtureFullPaper, type FullPaper } from "@/lib/exam-fixture";
+import { chooseMixIds, computerParts, isRetiredSpeakingSet, PRACTICE_MIX_ID, readCatalog } from "@/lib/exam-catalog";
+import { FIXTURE_ACTUAL_ID, fixtureFullPaper, type FullPaper } from "@/lib/exam-fixture";
 import { FIXTURE_PAPER_ID, listeningSecondsOrDefault } from "@/lib/exam-sitting";
+import { parseSkill } from "@/lib/exam-skill";
 import type { ClientListening, ClientQuestion, ClientReading, ClientWriting } from "@/lib/exam-paper-view";
 import {
   LISTENING_SECONDS,
@@ -25,22 +27,6 @@ type ExamRow = {
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
-}
-
-export function readAccessCode(paper: unknown): string {
-  const row = asRecord(paper);
-  if (!row) return "";
-  for (const key of ["accessCode", "access_code", "examCode", "code"]) {
-    const value = row[key];
-    if (typeof value === "string" && value.trim().length >= 4) return value.trim();
-  }
-  const nested = asRecord(row.listening) ?? asRecord(row.reading) ?? asRecord(row.writing);
-  if (!nested) return "";
-  for (const key of ["accessCode", "access_code", "examCode"]) {
-    const value = nested[key];
-    if (typeof value === "string" && value.trim().length >= 4) return value.trim();
-  }
-  return "";
 }
 
 function readQuestions(value: unknown): ObjectiveQuestion[] {
@@ -134,7 +120,6 @@ function readWriting(paper: unknown): WritingPaper | null {
 function fromParts(
   id: string,
   title: string,
-  accessCode: string,
   listening: ListeningPaper,
   reading: ReadingPaper,
   writing: WritingPaper,
@@ -142,7 +127,6 @@ function fromParts(
   return {
     id,
     title,
-    accessCode,
     listeningSeconds: listening.durationSeconds ?? LISTENING_SECONDS,
     listening,
     reading,
@@ -155,13 +139,45 @@ function paperFromRow(row: ExamRow): FullPaper | null {
   const reading = readReading(row.paper);
   const writing = readWriting(row.paper);
   if (!listening || !reading || !writing) return null;
-  return fromParts(row.id, row.title?.trim() || "Đề thi", readAccessCode(row.paper), listening, reading, writing);
+  return fromParts(row.id, row.title?.trim() || "Đề thi", listening, reading, writing);
+}
+
+async function loadPracticeMix(): Promise<FullPaper | null> {
+  if (!supabase) return null;
+  const listed = await supabase.from("ielts_exams").select("id, title, skill, paper").eq("status", "published");
+  if (listed.error || !listed.data) return null;
+  const rows = (listed.data as ExamRow[]).filter((row) => !isRetiredSpeakingSet(row.id, row.title));
+  const chosen = chooseMixIds(
+    rows.map((row) => {
+      const parts = computerParts(row.paper);
+      return {
+        id: row.id,
+        title: row.title,
+        catalog: readCatalog(row.paper, parseSkill(row.skill)),
+        ...parts,
+      };
+    }),
+  );
+  if (!chosen) return null;
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const listeningRow = byId.get(chosen.listeningId);
+  const readingRow = byId.get(chosen.readingId);
+  const writingRow = byId.get(chosen.writingId);
+  const listening = listeningRow ? readListening(listeningRow.paper) : null;
+  const reading = readingRow ? readReading(readingRow.paper) : null;
+  const writing = writingRow ? readWriting(writingRow.paper) : null;
+  if (!listening || !reading || !writing) return null;
+  if (new Set([chosen.listeningId, chosen.readingId, chosen.writingId]).size !== 3) return null;
+  return fromParts(PRACTICE_MIX_ID, "Luyện trộn", listening, reading, writing);
 }
 
 export async function loadFullPaper(paperId: string): Promise<FullPaper | null> {
-  if (process.env.E2E_FIXTURE === "1" && paperId === FIXTURE_PAPER_ID) {
-    return fixtureFullPaper();
+  if (isRetiredSpeakingSet(paperId)) return null;
+  if (process.env.E2E_FIXTURE === "1" && (paperId === FIXTURE_PAPER_ID || paperId === FIXTURE_ACTUAL_ID)) {
+    const fixture = fixtureFullPaper();
+    return paperId === FIXTURE_PAPER_ID ? fixture : { ...fixture, id: FIXTURE_ACTUAL_ID, title: "Actual Harbour Sitting" };
   }
+  if (paperId === PRACTICE_MIX_ID) return loadPracticeMix();
   if (!supabase || !paperId) return null;
   const selected = await supabase
     .from("ielts_exams")
@@ -171,30 +187,8 @@ export async function loadFullPaper(paperId: string): Promise<FullPaper | null> 
     .maybeSingle();
   if (selected.error || !selected.data) return null;
   const row = selected.data as ExamRow;
-  const combined = paperFromRow(row);
-  if (combined) return combined;
-
-  const listed = await supabase.from("ielts_exams").select("id, title, skill, paper").eq("status", "published");
-  if (listed.error || !listed.data) return null;
-  const rows = listed.data as ExamRow[];
-  const pick = (skill: string, reader: (paper: unknown) => ListeningPaper | ReadingPaper | WritingPaper | null) => {
-    const preferred = row.skill === skill ? row : rows.find((item) => item.skill === skill);
-    const match = preferred && reader(preferred.paper) ? preferred : rows.find((item) => reader(item.paper));
-    return match ? { row: match, part: reader(match.paper) } : null;
-  };
-  const listening = pick("listening", readListening);
-  const reading = pick("reading", readReading);
-  const writing = pick("writing", readWriting);
-  if (!listening?.part || !reading?.part || !writing?.part) return null;
-  const accessCode = readAccessCode(row.paper) || readAccessCode(listening.row.paper) || readAccessCode(reading.row.paper) || readAccessCode(writing.row.paper);
-  return fromParts(
-    row.id,
-    row.title?.trim() || "Full test",
-    accessCode,
-    listening.part as ListeningPaper,
-    reading.part as ReadingPaper,
-    writing.part as WritingPaper,
-  );
+  if (isRetiredSpeakingSet(row.id, row.title)) return null;
+  return paperFromRow(row);
 }
 
 function stripQuestion(question: ObjectiveQuestion): ClientQuestion {
