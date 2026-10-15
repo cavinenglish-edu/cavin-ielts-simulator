@@ -3,12 +3,17 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { saveExamAction, type SaveState } from "@/app/admin/actions";
+import { parseNoteGaps } from "@/lib/form-table";
 import {
   EXAMINER_VOICES,
   QUESTION_TYPE_LABEL,
   QUESTION_TYPES,
   TFNG_OPTIONS,
   type ExaminerVoice,
+  isFormTable,
+  type FormTableGap,
+  type FormTableQuestion,
+  type FormTableRow,
   type ListeningSection,
   type ObjectiveQuestion,
   type QuestionType,
@@ -667,6 +672,32 @@ function StringList({
   );
 }
 
+function convertQuestion(question: ObjectiveQuestion, type: QuestionType): ObjectiveQuestion {
+  if (type === "form_table") {
+    if (question.type === "form_table") return question;
+    return {
+      id: question.id,
+      type: "form_table",
+      title: "",
+      rows: [{ id: newId(), label: "", answer: "" }],
+      note: "",
+      gaps: [],
+    };
+  }
+  const previous = question.type === "form_table" ? "" : question.answer;
+  return {
+    id: question.id,
+    type,
+    prompt: question.type === "form_table" ? question.title : question.prompt,
+    options: type === "multiple_choice" || type === "matching" ? question.type === "form_table" ? ["", ""] : question.options ?? ["", ""] : undefined,
+    answer: type === "true_false_not_given" ? "True" : previous,
+  };
+}
+
+function syncGaps(note: string, gaps: FormTableGap[]): FormTableGap[] {
+  return parseNoteGaps(note).map((marker) => gaps.find((gap) => gap.marker === marker) ?? { id: newId(), marker, answer: "" });
+}
+
 function QuestionEditor({
   questions,
   onChange,
@@ -674,8 +705,8 @@ function QuestionEditor({
   questions: ObjectiveQuestion[];
   onChange: (questions: ObjectiveQuestion[]) => void;
 }) {
-  const update = (id: string, patch: Partial<ObjectiveQuestion>) => {
-    onChange(questions.map((question) => (question.id === id ? { ...question, ...patch } : question)));
+  const replace = (id: string, next: ObjectiveQuestion) => {
+    onChange(questions.map((question) => (question.id === id ? next : question)));
   };
 
   return (
@@ -686,7 +717,7 @@ function QuestionEditor({
         return (
           <div key={question.id} className="rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs font-bold text-slate-600">Câu {index + 1}</span>
+              <span className="text-xs font-bold text-slate-600">{isFormTable(question) ? `Nhóm ${index + 1}` : `Câu ${index + 1}`}</span>
               {questions.length > 1 ? (
                 <button
                   type="button"
@@ -704,13 +735,7 @@ function QuestionEditor({
               id={`q-type-${question.id}`}
               className={inputClass}
               value={question.type}
-              onChange={(event) => {
-                const type = event.target.value as QuestionType;
-                update(question.id, {
-                  type,
-                  answer: type === "true_false_not_given" ? "True" : question.answer,
-                });
-              }}
+              onChange={(event) => replace(question.id, convertQuestion(question, event.target.value as QuestionType))}
             >
               {QUESTION_TYPES.map((type) => (
                 <option key={type} value={type}>
@@ -718,62 +743,18 @@ function QuestionEditor({
                 </option>
               ))}
             </select>
-            <label className={labelClass} htmlFor={`q-prompt-${question.id}`}>
-              Nội dung
-            </label>
-            <textarea
-              id={`q-prompt-${question.id}`}
-              data-testid={index === 0 ? "question-prompt" : undefined}
-              rows={2}
-              className={inputClass}
-              value={question.prompt}
-              onChange={(event) => update(question.id, { prompt: event.target.value })}
-            />
-            {choice ? (
-              <div>
-                <label className={labelClass} htmlFor={`q-options-${question.id}`}>
-                  Phương án — mỗi dòng một ý
-                </label>
-                <textarea
-                  id={`q-options-${question.id}`}
-                  rows={3}
-                  className={inputClass}
-                  value={(question.options ?? []).join("\n")}
-                  onChange={(event) => update(question.id, { options: event.target.value.split("\n") })}
-                />
-              </div>
-            ) : null}
-            {question.type === "true_false_not_given" ? (
-              <div>
-                <label className={labelClass} htmlFor={`q-tfng-${question.id}`}>
-                  Đáp án
-                </label>
-                <select
-                  id={`q-tfng-${question.id}`}
-                  className={inputClass}
-                  value={question.answer || "True"}
-                  onChange={(event) => update(question.id, { answer: event.target.value })}
-                >
-                  {TFNG_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {isFormTable(question) ? (
+              <FormTableFields
+                group={question}
+                onChange={(next) => replace(question.id, next)}
+              />
             ) : (
-              <div>
-                <label className={labelClass} htmlFor={`q-answer-${question.id}`}>
-                  Đáp án
-                </label>
-                <input
-                  id={`q-answer-${question.id}`}
-                  data-testid={index === 0 ? "question-answer" : undefined}
-                  className={inputClass}
-                  value={question.answer}
-                  onChange={(event) => update(question.id, { answer: event.target.value })}
-                />
-              </div>
+              <StandardFields
+                question={question}
+                index={index}
+                choice={choice}
+                onChange={(next) => replace(question.id, next)}
+              />
             )}
           </div>
         );
@@ -781,6 +762,180 @@ function QuestionEditor({
       <button type="button" className="text-sm font-semibold text-blue-700" onClick={() => onChange([...questions, blankQuestion()])}>
         Thêm câu hỏi
       </button>
+    </div>
+  );
+}
+
+function StandardFields({
+  question,
+  index,
+  choice,
+  onChange,
+}: {
+  question: Exclude<ObjectiveQuestion, FormTableQuestion>;
+  index: number;
+  choice: boolean;
+  onChange: (question: ObjectiveQuestion) => void;
+}) {
+  return (
+    <>
+      <label className={labelClass} htmlFor={`q-prompt-${question.id}`}>
+        Nội dung
+      </label>
+      <textarea
+        id={`q-prompt-${question.id}`}
+        data-testid={index === 0 ? "question-prompt" : undefined}
+        rows={2}
+        className={inputClass}
+        value={question.prompt}
+        onChange={(event) => onChange({ ...question, prompt: event.target.value })}
+      />
+      {choice ? (
+        <div>
+          <label className={labelClass} htmlFor={`q-options-${question.id}`}>
+            Phương án — mỗi dòng một ý
+          </label>
+          <textarea
+            id={`q-options-${question.id}`}
+            rows={3}
+            className={inputClass}
+            value={(question.options ?? []).join("\n")}
+            onChange={(event) => onChange({ ...question, options: event.target.value.split("\n") })}
+          />
+        </div>
+      ) : null}
+      {question.type === "true_false_not_given" ? (
+        <div>
+          <label className={labelClass} htmlFor={`q-tfng-${question.id}`}>
+            Đáp án
+          </label>
+          <select
+            id={`q-tfng-${question.id}`}
+            className={inputClass}
+            value={question.answer || "True"}
+            onChange={(event) => onChange({ ...question, answer: event.target.value })}
+          >
+            {TFNG_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <div>
+          <label className={labelClass} htmlFor={`q-answer-${question.id}`}>
+            Đáp án
+          </label>
+          <input
+            id={`q-answer-${question.id}`}
+            data-testid={index === 0 ? "question-answer" : undefined}
+            className={inputClass}
+            value={question.answer}
+            onChange={(event) => onChange({ ...question, answer: event.target.value })}
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
+function FormTableFields({
+  group,
+  onChange,
+}: {
+  group: Extract<ObjectiveQuestion, { type: "form_table" }>;
+  onChange: (group: Extract<ObjectiveQuestion, { type: "form_table" }>) => void;
+}) {
+  const setRow = (id: string, patch: Partial<FormTableRow>) => {
+    onChange({ ...group, rows: group.rows.map((row) => (row.id === id ? { ...row, ...patch } : row)) });
+  };
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className={labelClass} htmlFor={`form-title-${group.id}`}>
+          Tiêu đề nhóm (không bắt buộc)
+        </label>
+        <input
+          id={`form-title-${group.id}`}
+          className={inputClass}
+          placeholder="Buying a Used Car"
+          value={group.title}
+          onChange={(event) => onChange({ ...group, title: event.target.value })}
+        />
+      </div>
+      <div className="space-y-2">
+        <span className={labelClass}>Dòng của bảng — nhãn và đáp án</span>
+        {group.rows.map((row, index) => (
+          <div key={row.id} className="grid sm:grid-cols-[1fr_1fr_auto] gap-2">
+            <input
+              aria-label={`Nhãn dòng ${index + 1}`}
+              className={inputClass}
+              placeholder="Model"
+              value={row.label}
+              onChange={(event) => setRow(row.id, { label: event.target.value })}
+            />
+            <input
+              aria-label={`Đáp án dòng ${index + 1}`}
+              className={inputClass}
+              placeholder="Corolla|Toyota"
+              value={row.answer}
+              onChange={(event) => setRow(row.id, { answer: event.target.value })}
+            />
+            <button
+              type="button"
+              className="px-3 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700"
+              onClick={() => onChange({ ...group, rows: group.rows.filter((item) => item.id !== row.id) })}
+            >
+              Xóa dòng
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          className="text-sm font-semibold text-blue-700"
+          onClick={() => onChange({ ...group, rows: [...group.rows, { id: newId(), label: "", answer: "" }] })}
+        >
+          Thêm dòng
+        </button>
+      </div>
+      <div>
+        <label className={labelClass} htmlFor={`form-note-${group.id}`}>
+          Câu có chỗ trống — dùng {"{{1}}"}, {"{{2}}"}
+        </label>
+        <textarea
+          id={`form-note-${group.id}`}
+          rows={3}
+          className={inputClass}
+          placeholder="The seller lives in {{1}}."
+          value={group.note}
+          onChange={(event) => {
+            const note = event.target.value;
+            onChange({ ...group, note, gaps: syncGaps(note, group.gaps) });
+          }}
+        />
+      </div>
+      {group.gaps.map((gap) => (
+        <div key={gap.id}>
+          <label className={labelClass} htmlFor={`gap-${gap.id}`}>
+            Đáp án {"{{"}
+            {gap.marker}
+            {"}}"}
+          </label>
+          <input
+            id={`gap-${gap.id}`}
+            className={inputClass}
+            value={gap.answer}
+            onChange={(event) =>
+              onChange({
+                ...group,
+                gaps: group.gaps.map((item) => (item.id === gap.id ? { ...item, answer: event.target.value } : item)),
+              })
+            }
+          />
+        </div>
+      ))}
+      <p className="text-xs text-slate-600">Đáp án ngắn: không phân biệt hoa thường, cắt khoảng trắng, nhiều đáp án cách nhau bởi dấu |.</p>
     </div>
   );
 }

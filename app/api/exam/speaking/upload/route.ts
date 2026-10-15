@@ -70,7 +70,7 @@ export async function POST(request: Request) {
   if (files.length > MAX_CLIPS) return NextResponse.json({ error: "Quá nhiều đoạn ghi." }, { status: 400 });
 
   const client = createClient(storage.url, storage.key, { auth: { persistSession: false, autoRefreshToken: false } });
-  const stored: string[] = [];
+  const stored: Array<{ part: SpeakingPart; questionIndex: number; path: string }> = [];
 
   for (let index = 0; index < files.length; index += 1) {
     const file = files[index];
@@ -101,8 +101,8 @@ export async function POST(request: Request) {
       console.error("Speaking upload failed");
       return NextResponse.json({ error: "Không lưu được bản ghi vào kho." }, { status: 502 });
     }
-    stored.push(key);
+    stored.push({ part, questionIndex, path: key });
   }
 
-  return NextResponse.json({ ok: true, stored: stored.length });
+  return NextResponse.json({ ok: true, stored: stored.length, refs: stored });
 }

@@ -4,10 +4,13 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation";
 import { formatClock } from "@/lib/ielts-score";
 import type { PublicSession } from "@/lib/exam-sitting";
+import type { SubmitView } from "@/lib/exam-submit";
 import type { ClientReading } from "@/lib/exam-paper-view";
 import type { PassageMark } from "@/lib/sitting-recovery";
 import { ExamShell } from "@/app/exam/components/exam-shell";
 import { ObjectiveQuestions } from "@/app/exam/components/objective-questions";
+import { postSubmit } from "@/app/exam/components/post-submit";
+import { SubmissionNotice } from "@/app/exam/components/submission-notice";
 import { useSittingRecovery } from "@/app/exam/components/use-sitting-recovery";
 import { pathForSession, useExamCountdown, useSessionRefresh } from "@/app/exam/components/use-exam-countdown";
 
@@ -27,6 +30,11 @@ export function ReadingRoom({ initial, paper }: { initial: PublicSession; paper:
   const { state, setState, hydrated } = useSittingRecovery(initial.paperId);
   const left = useExamCountdown(session);
   const [locked, setLocked] = useState(false);
+  const [submitView, setSubmitView] = useState<SubmitView | null>(null);
+  const answersRef = useRef(state.reading);
+  useEffect(() => {
+    answersRef.current = state.reading;
+  });
   const [popup, setPopup] = useState<Popup | null>(null);
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
@@ -57,7 +65,10 @@ export function ReadingRoom({ initial, paper }: { initial: PublicSession; paper:
     const timer = window.setTimeout(() => {
       sent.current = key;
       setLocked(true);
-      window.setTimeout(() => void advance(), 300);
+      void postSubmit({ skill: "reading", answers: answersRef.current }).then((view) => {
+        setSubmitView(view);
+        window.setTimeout(() => void advance(), 2500);
+      });
     }, 0);
     return () => window.clearTimeout(timer);
   }, [advance, left, session.clockOffsetMs, session.startedAt]);
@@ -131,6 +142,7 @@ export function ReadingRoom({ initial, paper }: { initial: PublicSession; paper:
           ))}
         </div>
         <div data-testid="reading-questions" className="min-h-0 overflow-y-auto px-6 py-6">
+          <SubmissionNotice view={submitView} />
           {hydrated ? (
             <ObjectiveQuestions
               questions={questions}

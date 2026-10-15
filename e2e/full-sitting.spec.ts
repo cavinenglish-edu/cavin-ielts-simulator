@@ -40,11 +40,21 @@ async function reachReading(page: Page) {
   const started = await page.request.post("/api/e2e/bootstrap");
   expect(started.ok()).toBeTruthy();
   await page.goto("/exam/listening");
-  await expect(page.getByTestId("question-nav").getByRole("button")).toHaveCount(2);
+  await expect(page.getByTestId("question-nav").getByRole("button")).toHaveCount(6);
+  const table = page.getByTestId("form-table");
+  await expect(table).toBeVisible();
+  await expect(table.getByRole("row")).toHaveCount(3);
+  await expect(table.getByRole("row", { name: "Model" })).toBeVisible();
+  await expect(table.getByRole("row", { name: "Year" })).toBeVisible();
+  await expect(table.getByRole("row", { name: "Condition" })).toBeVisible();
+  await expect(page.getByTestId("form-note")).toContainText("The seller lives in");
+  await page.getByLabel("Model").fill("Corolla");
   await page.getByTestId("play-audio").click();
   await expect(page.getByTestId("exam-timer")).toHaveText("02:00");
   await expect(page.getByTestId("listening-phase")).toHaveText("Review");
   await fastForward(page, 130_000);
+  await expect(page.getByTestId("paper-sent")).toHaveText("Bài đã được gửi.");
+  await expect(page.getByTestId("raw-score")).toContainText("/6");
   await expect(page).toHaveURL(/\/exam\/reading/);
   await expect.poll(async () => page.evaluate(() => Boolean((window as Window & { __sectionLocked?: boolean }).__sectionLocked))).toBe(true);
 }

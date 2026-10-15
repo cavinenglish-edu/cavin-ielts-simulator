@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Award,
   ChevronLeft,
   Download,
   Share2,
@@ -16,13 +15,11 @@ import {
   AlertTriangle,
   Zap,
   Star,
-  Activity,
   Volume2,
   Mic,
   Edit3
 } from "lucide-react";
 import { ExamSubmission, EvaluationResult } from "@/types";
-import toast from "react-hot-toast";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -30,7 +27,7 @@ export default function ReportPage() {
   const [submission, setSubmission] = useState<ExamSubmission | null>(null);
   const [result, setResult] = useState<EvaluationResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [analysisStep, setAnalysisStep] = useState(0);
+  const [failure, setFailure] = useState("");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -41,83 +38,59 @@ export default function ReportPage() {
       return;
     }
 
-    const parsed = JSON.parse(storedSubmission);
-    setSubmission(parsed);
+    const parsed = JSON.parse(storedSubmission) as ExamSubmission;
+    const timer = window.setTimeout(() => {
+      setSubmission(parsed);
+    }, 0);
 
     const evaluateExam = async () => {
-      // Simulate AI loading steps
-      const steps = [
-        "Đang trích xuất văn bản (Speech-to-Text) từ file ghi âm...",
-        "Đang phân tích Tiêu chí Fluency & Coherence...",
-        "Đang quét từ vựng và thành ngữ (Lexical Resource)...",
-        "Đang chấm điểm ngữ pháp (Grammatical Range & Accuracy)...",
-        "Đang phân tích phát âm và ngữ điệu (Pronunciation)...",
-        "Đang tổng hợp Bảng điểm TRF (Test Report Form)..."
-      ];
-
-      for (let i = 0; i < steps.length; i++) {
-        setAnalysisStep(i);
-        await new Promise((r) => setTimeout(r, 600));
-      }
-
       try {
         const res = await fetch("/api/evaluate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(parsed),
         });
-        
-        if (res.ok) {
-          const data = await res.json();
+        const data = (await res.json().catch(() => null)) as (EvaluationResult & { message?: string; overall?: number }) | null;
+        if (data && typeof data.overall === "number" && data.criteria) {
           setResult(data);
         } else {
-          console.error("Evaluation failed");
-          toast.error("Quá trình phân tích AI gặp sự cố. Vui lòng thử lại sau.", { duration: 5000 });
+          setFailure(data?.message || "chưa chấm được vì thiếu khóa AI");
         }
-      } catch (err) {
-        console.error(err);
-        toast.error("Mất kết nối mạng hoặc không thể gọi API. Vui lòng kiểm tra lại đường truyền.", { duration: 5000 });
+      } catch {
+        setFailure("Không chấm được bài.");
       } finally {
         setIsLoading(false);
       }
     };
 
-    evaluateExam();
+    void evaluateExam();
+    return () => window.clearTimeout(timer);
   }, [router]);
 
   if (isLoading) {
-    const steps = [
-      "Đang trích xuất văn bản (Speech-to-Text) từ file ghi âm...",
-      "Đang phân tích Tiêu chí Fluency & Coherence...",
-      "Đang quét từ vựng và thành ngữ (Lexical Resource)...",
-      "Đang chấm điểm ngữ pháp (Grammatical Range & Accuracy)...",
-      "Đang phân tích phát âm và ngữ điệu (Pronunciation)...",
-      "Đang tổng hợp Bảng điểm TRF (Test Report Form)..."
-    ];
-
     return (
       <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6">
-        <div className="w-24 h-24 relative mb-8">
-          <div className="absolute inset-0 border-4 border-blue-500/30 rounded-full"></div>
-          <div className="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent animate-spin"></div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Activity className="w-8 h-8 text-blue-400 animate-pulse" />
-          </div>
-        </div>
-        <h2 className="text-2xl font-bold mb-2">Giám khảo AI đang chấm điểm</h2>
-        <p className="text-blue-400 font-mono text-sm mb-12 h-6">{steps[analysisStep]}</p>
-        
-        <div className="w-full max-w-md bg-slate-800 rounded-full h-2 overflow-hidden">
-          <div 
-            className="bg-blue-500 h-full transition-all duration-500 ease-out"
-            style={{ width: `${((analysisStep + 1) / steps.length) * 100}%` }}
-          ></div>
-        </div>
+        <h2 className="text-2xl font-bold mb-2">Đang gửi bài</h2>
+        <p className="text-blue-400 text-sm">Hệ thống chỉ hiện điểm khi có kết quả chấm thật.</p>
       </div>
     );
   }
 
-  if (!result || !submission) return null;
+  if (failure || !result || !submission) {
+    return (
+      <main className="min-h-screen bg-slate-100 px-6 py-16">
+        <section className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-8">
+          <h1 className="text-xl font-bold text-slate-900">Chưa có điểm Speaking</h1>
+          <p data-testid="marking-note" className="mt-3 text-sm text-slate-800">
+            {failure || "chưa chấm được vì thiếu khóa AI"}
+          </p>
+          <Link href="/" className="mt-6 inline-block text-sm font-semibold text-blue-700">
+            Về trang chủ
+          </Link>
+        </section>
+      </main>
+    );
+  }
 
   const { candidate, examTitle } = submission;
 
