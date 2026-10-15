@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
 const ERRORS: Record<string, string> = {
   mismatch: "Số điện thoại hoặc mã PIN không đúng.",
   empty: "Nhập đủ số điện thoại và mã PIN.",
@@ -10,8 +14,21 @@ const LEGACY_UNAVAILABLE = new Set(["sheet_config", "sheet_invalid", "sheet_forb
 
 export function LoginForm({ errorCode }: { errorCode?: string }) {
   const message = errorCode ? ERRORS[errorCode] ?? (LEGACY_UNAVAILABLE.has(errorCode) ? ERRORS.unavailable : undefined) : undefined;
+  const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    const restore = () => setPending(false);
+    window.addEventListener("pageshow", restore);
+    return () => window.removeEventListener("pageshow", restore);
+  }, []);
+
   return (
-    <form action="/admin/login" method="post" className="max-w-md mx-auto bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+    <form
+      action="/admin/login"
+      method="post"
+      onSubmit={() => setPending(true)}
+      className="max-w-md mx-auto bg-white border border-slate-200 rounded-2xl shadow-sm p-6"
+    >
       <h1 className="text-xl font-bold text-slate-900">Đăng nhập quản trị</h1>
       <p className="text-sm text-slate-600 mt-2 mb-6">
         Mỗi quản trị viên dùng số điện thoại và mã PIN riêng. Mã PIN thí sinh không mở được trang này.
@@ -51,9 +68,21 @@ export function LoginForm({ errorCode }: { errorCode?: string }) {
       <button
         type="submit"
         data-testid="admin-login"
-        className="mt-6 w-full px-4 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700"
+        disabled={pending}
+        aria-busy={pending}
+        className="mt-6 w-full px-4 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-90 inline-flex items-center justify-center gap-2"
       >
-        Vào trang quản trị
+        {pending ? (
+          <>
+            <span
+              aria-hidden="true"
+              className="inline-block h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin"
+            />
+            Đang đăng nhập…
+          </>
+        ) : (
+          "Vào trang quản trị"
+        )}
       </button>
     </form>
   );
