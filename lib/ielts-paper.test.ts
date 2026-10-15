@@ -86,7 +86,8 @@ describe("paper schema", () => {
     );
     assert.equal(parsed.success, true);
     if (!parsed.success || parsed.data.skill !== "reading") return;
-    assert.equal(parsed.data.passages[0]?.questions[0]?.answer, "Cities");
+    const first = parsed.data.passages[0]?.questions[0];
+    assert.equal(first && first.type !== "form_table" ? first.answer : "", "Cities");
   });
 
   it("rejects reading without passage text", () => {

@@ -13,8 +13,11 @@ import {
   RECORDING_LEAVE_WARNING,
   type SpeakingPart,
 } from "@/lib/speaking-recording";
+import { postSubmit } from "@/app/exam/components/post-submit";
 import { SpeakingPart2 } from "@/app/exam/components/speaking-part2";
+import { SubmissionNotice } from "@/app/exam/components/submission-notice";
 import { playBeep, useSpeakingRecorder } from "@/app/exam/components/use-speaking-recorder";
+import type { SubmitView } from "@/lib/exam-submit";
 
 type Phase = "p1" | "p2_prep" | "p2_speak" | "p3" | "uploading" | "saved" | "upload-error";
 type Gate = "loading" | "missing" | "early" | "ready";
@@ -41,6 +44,7 @@ export default function SpeakingRoom({ preview }: { preview: "prep" | "record" |
   const [examinerText, setExaminerText] = useState("");
   const [examinerSpeaking, setExaminerSpeaking] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [submitView, setSubmitView] = useState<SubmitView | null>(null);
   const timerRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const startedRef = useRef(false);
@@ -107,17 +111,25 @@ export default function SpeakingRoom({ preview }: { preview: "prep" | "record" |
       form.append("mimeType", clip.mimeType);
     }
     const response = await fetch("/api/exam/speaking/upload", { method: "POST", body: form });
-    const data = (await response.json().catch(() => null)) as { error?: string; next?: string } | null;
+    const data = (await response.json().catch(() => null)) as {
+      error?: string;
+      refs?: Array<{ part: 1 | 2 | 3; questionIndex: number; path: string }>;
+    } | null;
     if (!response.ok) {
       setUploadError(data?.error || "Không lưu được bản ghi.");
       setPhase("upload-error");
       return;
     }
+    const submitted = await postSubmit({ skill: "speaking", recordings: data?.refs ?? [] });
+    setSubmitView(submitted);
     setPhase("saved");
-    const advance = await fetch("/api/exam/advance", { method: "POST" });
-    if (!advance.ok) return;
-    const body = (await advance.json()) as { next?: string };
-    if (body.next) router.push(body.next);
+    window.setTimeout(() => {
+      void fetch("/api/exam/advance", { method: "POST" }).then(async (advance) => {
+        if (!advance.ok) return;
+        const body = (await advance.json()) as { next?: string };
+        if (body.next) router.push(body.next);
+      });
+    }, 2500);
   };
 
   const endCapture = async (part: SpeakingPart, index: number) => {
@@ -379,9 +391,12 @@ export default function SpeakingRoom({ preview }: { preview: "prep" | "record" |
                 </button>
               </>
             ) : (
-              <p className="mt-2 text-sm text-slate-600">
-                {phase === "saved" ? "Các đoạn webm đã gửi vào kho của phiên PIN này." : "Đừng tải lại trang khi bản ghi còn trong máy."}
-              </p>
+              <>
+                <SubmissionNotice view={submitView} />
+                <p className="mt-2 text-sm text-slate-600">
+                  {phase === "saved" ? "Các đoạn ghi đã gửi vào kho của phiên này." : "Đừng tải lại trang khi bản ghi còn trong máy."}
+                </p>
+              </>
             )}
           </section>
         ) : (

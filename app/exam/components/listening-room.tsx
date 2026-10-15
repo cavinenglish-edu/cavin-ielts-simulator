@@ -3,11 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 import { formatClock } from "@/lib/ielts-score";
+import { examBlankCount, examBlanks } from "@/lib/form-table";
 import type { PublicSession } from "@/lib/exam-sitting";
+import type { SubmitView } from "@/lib/exam-submit";
 import type { ClientListening } from "@/lib/exam-paper-view";
 import { ExamShell } from "@/app/exam/components/exam-shell";
 import { ObjectiveQuestions } from "@/app/exam/components/objective-questions";
 import { QuestionNav } from "@/app/exam/components/question-nav";
+import { postSubmit } from "@/app/exam/components/post-submit";
+import { SubmissionNotice } from "@/app/exam/components/submission-notice";
 import { useSittingRecovery } from "@/app/exam/components/use-sitting-recovery";
 import { pathForSession, useExamCountdown, useSessionRefresh } from "@/app/exam/components/use-exam-countdown";
 
@@ -26,12 +30,17 @@ export function ListeningRoom({ initial, paper }: { initial: PublicSession; pape
   const questions = useMemo(() => paper.sections.flatMap((section) => section.questions), [paper.sections]);
   const [sectionIndex, setSectionIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [submitView, setSubmitView] = useState<SubmitView | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const sent = useRef("");
+  const answersRef = useRef(state.listening);
+  useEffect(() => {
+    answersRef.current = state.listening;
+  });
   const left = useExamCountdown(session);
   const [locked, setLocked] = useState(false);
   const section = paper.sections[sectionIndex] ?? paper.sections[0];
-  const startIndex = paper.sections.slice(0, sectionIndex).reduce((sum, item) => sum + item.questions.length, 0);
+  const startIndex = paper.sections.slice(0, sectionIndex).reduce((sum, item) => sum + examBlankCount(item.questions), 0);
 
   const refreshSession = useCallback(async () => {
     const response = await fetch("/api/exam/session", { cache: "no-store" });
@@ -70,7 +79,10 @@ export function ListeningRoom({ initial, paper }: { initial: PublicSession; pape
         return;
       }
       setLocked(true);
-      window.setTimeout(() => void advance(), 300);
+      void postSubmit({ skill: "listening", answers: answersRef.current }).then((view) => {
+        setSubmitView(view);
+        window.setTimeout(() => void advance(), 2500);
+      });
     }, 0);
     return () => window.clearTimeout(timer);
   }, [advance, left, session.clockOffsetMs, session.listeningPhase, session.section, session.startedAt, startReview]);
@@ -91,6 +103,7 @@ export function ListeningRoom({ initial, paper }: { initial: PublicSession; pape
     >
       <div className="h-full min-h-0 flex flex-col">
         <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6 space-y-6">
+          <SubmissionNotice view={submitView} />
           <p data-testid="listening-phase" className="text-xs font-bold uppercase tracking-wide text-slate-500">
             {session.listeningPhase === "review" ? "Review" : "Audio"}
           </p>
@@ -139,7 +152,7 @@ export function ListeningRoom({ initial, paper }: { initial: PublicSession; pape
             <p className="text-sm text-slate-600">Đang khôi phục bài làm…</p>
           )}
         </div>
-        <QuestionNav questions={questions} answers={state.listening} />
+        <QuestionNav questions={examBlanks(questions)} answers={state.listening} />
       </div>
     </ExamShell>
   );

@@ -5,8 +5,11 @@ import { useRouter } from "next/navigation";
 import { countWords, formatClock } from "@/lib/ielts-score";
 import { WRITING_WORD_TARGETS } from "@/lib/exam-skill";
 import type { PublicSession } from "@/lib/exam-sitting";
+import type { SubmitView } from "@/lib/exam-submit";
 import type { ClientWriting } from "@/lib/exam-paper-view";
 import { ExamShell } from "@/app/exam/components/exam-shell";
+import { postSubmit } from "@/app/exam/components/post-submit";
+import { SubmissionNotice } from "@/app/exam/components/submission-notice";
 import { useSittingRecovery } from "@/app/exam/components/use-sitting-recovery";
 import { pathForSession, useExamCountdown, useSessionRefresh } from "@/app/exam/components/use-exam-countdown";
 
@@ -24,7 +27,12 @@ export function WritingRoom({ initial, paper }: { initial: PublicSession; paper:
   const { state, setState, hydrated } = useSittingRecovery(initial.paperId);
   const left = useExamCountdown(session);
   const [locked, setLocked] = useState(false);
+  const [submitView, setSubmitView] = useState<SubmitView | null>(null);
   const sent = useRef("");
+  const draftsRef = useRef({ task1: state.task1, task2: state.task2 });
+  useEffect(() => {
+    draftsRef.current = { task1: state.task1, task2: state.task2 };
+  });
   const task = state.writingTask;
   const draft = task === 1 ? state.task1 : state.task2;
   const prompt = task === 1 ? paper.task1.prompt : paper.task2.prompt;
@@ -48,7 +56,10 @@ export function WritingRoom({ initial, paper }: { initial: PublicSession; paper:
     const timer = window.setTimeout(() => {
       sent.current = key;
       setLocked(true);
-      window.setTimeout(() => void advance(), 300);
+      void postSubmit({ skill: "writing", task1: draftsRef.current.task1, task2: draftsRef.current.task2 }).then((view) => {
+        setSubmitView(view);
+        window.setTimeout(() => void advance(), 2500);
+      });
     }, 0);
     return () => window.clearTimeout(timer);
   }, [advance, left, session.clockOffsetMs, session.startedAt]);
@@ -64,6 +75,7 @@ export function WritingRoom({ initial, paper }: { initial: PublicSession; paper:
       locked={locked}
     >
       <div className="h-full min-h-0 flex flex-col">
+        <SubmissionNotice view={submitView} />
         <div className="shrink-0 flex gap-2 px-6 pt-4">
           <button
             type="button"

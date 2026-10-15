@@ -6,13 +6,12 @@ import { parseSkill } from "@/lib/exam-skill";
 import type { ClientListening, ClientQuestion, ClientReading, ClientWriting } from "@/lib/exam-paper-view";
 import {
   LISTENING_SECONDS,
-  QUESTION_TYPES,
   type ListeningPaper,
   type ObjectiveQuestion,
-  type QuestionType,
   type ReadingPaper,
   type WritingPaper,
 } from "@/lib/exam-skill";
+import { prepareQuestions } from "@/lib/ielts-paper";
 import { supabase } from "@/lib/supabase";
 
 export type { ClientListening, ClientQuestion, ClientReading, ClientWriting };
@@ -30,25 +29,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function readQuestions(value: unknown): ObjectiveQuestion[] {
-  if (!Array.isArray(value)) return [];
-  const questions: ObjectiveQuestion[] = [];
-  for (const item of value) {
-    const row = asRecord(item);
-    if (!row) continue;
-    const prompt = typeof row.prompt === "string" ? row.prompt.trim() : "";
-    const answer = typeof row.answer === "string" ? row.answer.trim() : "";
-    if (!prompt || !answer) continue;
-    const type = QUESTION_TYPES.includes(row.type as QuestionType) ? (row.type as QuestionType) : "short_text";
-    const options = Array.isArray(row.options) ? row.options.filter((option): option is string => typeof option === "string" && option.trim().length > 0) : undefined;
-    questions.push({
-      id: typeof row.id === "string" && row.id.trim() ? row.id : `q_${questions.length + 1}`,
-      type,
-      prompt,
-      options,
-      answer,
-    });
-  }
-  return questions;
+  return prepareQuestions(value);
 }
 
 function readListening(paper: unknown): ListeningPaper | null {
@@ -192,6 +173,16 @@ export async function loadFullPaper(paperId: string): Promise<FullPaper | null> 
 }
 
 function stripQuestion(question: ObjectiveQuestion): ClientQuestion {
+  if (question.type === "form_table") {
+    return {
+      id: question.id,
+      type: "form_table",
+      title: question.title,
+      rows: question.rows.map((row) => ({ id: row.id, label: row.label })),
+      note: question.note,
+      gaps: question.gaps.map((gap) => ({ id: gap.id, marker: gap.marker })),
+    };
+  }
   return {
     id: question.id,
     type: question.type,

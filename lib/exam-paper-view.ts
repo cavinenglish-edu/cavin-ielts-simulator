@@ -1,11 +1,22 @@
-import type { QuestionType } from "@/lib/exam-skill";
+import type { StandardQuestionType } from "@/lib/exam-skill";
 
-export type ClientQuestion = {
+export type ClientFormTable = {
   id: string;
-  type: QuestionType;
-  prompt: string;
-  options?: string[];
+  type: "form_table";
+  title: string;
+  rows: Array<{ id: string; label: string }>;
+  note: string;
+  gaps: Array<{ id: string; marker: number }>;
 };
+
+export type ClientQuestion =
+  | {
+      id: string;
+      type: StandardQuestionType;
+      prompt: string;
+      options?: string[];
+    }
+  | ClientFormTable;
 
 export type ClientListening = {
   title: string;

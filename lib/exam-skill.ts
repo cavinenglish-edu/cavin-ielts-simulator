@@ -20,12 +20,16 @@ export const EXAMINER_VOICES = [
 
 export type ExaminerVoice = (typeof EXAMINER_VOICES)[number]["value"];
 
-export const QUESTION_TYPES = [
+export const STANDARD_QUESTION_TYPES = [
   "multiple_choice",
   "short_text",
   "true_false_not_given",
   "matching",
 ] as const;
+
+export const QUESTION_TYPES = [...STANDARD_QUESTION_TYPES, "form_table"] as const;
+
+export type StandardQuestionType = (typeof STANDARD_QUESTION_TYPES)[number];
 
 export type QuestionType = (typeof QUESTION_TYPES)[number];
 
@@ -34,6 +38,7 @@ export const QUESTION_TYPE_LABEL: Record<QuestionType, string> = {
   short_text: "Điền câu trả lời ngắn",
   true_false_not_given: "True / False / Not Given",
   matching: "Matching",
+  form_table: "Bảng / form hoặc câu có chỗ trống",
 };
 
 export const TFNG_OPTIONS = ["True", "False", "Not Given"] as const;
@@ -43,13 +48,40 @@ export const READING_SECONDS = 60 * 60;
 export const WRITING_SECONDS = 60 * 60;
 export const WRITING_WORD_TARGETS = { task1: 150, task2: 250 } as const;
 
-export type ObjectiveQuestion = {
+export type StandardQuestion = {
   id: string;
-  type: QuestionType;
+  type: StandardQuestionType;
   prompt: string;
   options?: string[];
   answer: string;
 };
+
+export type FormTableRow = {
+  id: string;
+  label: string;
+  answer: string;
+};
+
+export type FormTableGap = {
+  id: string;
+  marker: number;
+  answer: string;
+};
+
+export type FormTableQuestion = {
+  id: string;
+  type: "form_table";
+  title: string;
+  rows: FormTableRow[];
+  note: string;
+  gaps: FormTableGap[];
+};
+
+export type ObjectiveQuestion = StandardQuestion | FormTableQuestion;
+
+export function isFormTable(question: { type: string }): question is FormTableQuestion {
+  return question.type === "form_table";
+}
 
 export type ListeningSection = {
   id: string;

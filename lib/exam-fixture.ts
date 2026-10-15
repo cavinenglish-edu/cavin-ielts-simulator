@@ -29,6 +29,18 @@ export function fixtureFullPaper(): FullPaper {
           questions: [
             { id: "l1", type: "short_text", prompt: "What is her name?", answer: "Anna" },
             { id: "l2", type: "short_text", prompt: "Which city?", answer: "Hue" },
+            {
+              id: "lform",
+              type: "form_table",
+              title: "Buying a Used Car",
+              rows: [
+                { id: "lmodel", label: "Model", answer: "Corolla" },
+                { id: "lyear", label: "Year", answer: "2012" },
+                { id: "lcond", label: "Condition", answer: "good|fair" },
+              ],
+              note: "The seller lives in {{1}}.",
+              gaps: [{ id: "lgap1", marker: 1, answer: "Hue" }],
+            },
           ],
         },
       ],

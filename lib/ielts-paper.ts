@@ -1,27 +1,31 @@
 import { z } from "zod";
 import {
   EXAMINER_VOICES,
-  QUESTION_TYPES,
+  STANDARD_QUESTION_TYPES,
   TFNG_OPTIONS,
   isExaminerVoice,
   parseSkill,
   type ExaminerVoice,
+  type FormTableGap,
+  type FormTableQuestion,
+  type FormTableRow,
   type ListeningPaper,
   type ObjectiveQuestion,
-  type QuestionType,
   type ReadingPaper,
   type Skill,
+  type StandardQuestionType,
   type WritingPaper,
 } from "@/lib/exam-skill";
 import { computerParts } from "@/lib/exam-catalog";
+import { parseNoteGaps } from "@/lib/form-table";
 import { normalizeAnswer } from "@/lib/ielts-score";
 
 const voiceValues = EXAMINER_VOICES.map((voice) => voice.value) as [ExaminerVoice, ...ExaminerVoice[]];
 
-const questionSchema = z
+const standardQuestionSchema = z
   .object({
     id: z.string().trim().min(1),
-    type: z.enum(QUESTION_TYPES),
+    type: z.enum(STANDARD_QUESTION_TYPES),
     prompt: z.string().trim().min(1, "Nhập nội dung câu hỏi"),
     options: z.array(z.string().trim().min(1)).optional(),
     answer: z.string().trim().min(1, "Nhập đáp án"),
@@ -48,6 +52,46 @@ const questionSchema = z
       }
     }
   });
+
+const formTableSchema = z
+  .object({
+    id: z.string().trim().min(1),
+    type: z.literal("form_table"),
+    title: z.string().trim().max(200),
+    rows: z
+      .array(
+        z.object({
+          id: z.string().trim().min(1),
+          label: z.string().trim().min(1, "Nhập nhãn"),
+          answer: z.string().trim().min(1, "Nhập đáp án"),
+        }),
+      )
+      .max(40),
+    note: z.string().max(8000),
+    gaps: z
+      .array(
+        z.object({
+          id: z.string().trim().min(1),
+          marker: z.number().int().min(1).max(99),
+          answer: z.string().trim().min(1, "Nhập đáp án chỗ trống"),
+        }),
+      )
+      .max(40),
+  })
+  .superRefine((group, ctx) => {
+    const markers = parseNoteGaps(group.note);
+    if (group.rows.length === 0 && markers.length === 0) {
+      ctx.addIssue({ code: "custom", path: ["rows"], message: "Thêm ít nhất một dòng hoặc một chỗ trống {{1}}" });
+    }
+    const answered = new Set(group.gaps.map((gap) => gap.marker));
+    for (const marker of markers) {
+      if (!answered.has(marker)) {
+        ctx.addIssue({ code: "custom", path: ["gaps"], message: `Thiếu đáp án cho {{${marker}}}` });
+      }
+    }
+  });
+
+const questionSchema = z.union([standardQuestionSchema, formTableSchema]);
 
 const listeningSchema = z.object({
   id: z.string().uuid("Mã đề không hợp lệ").optional(),
@@ -187,13 +231,46 @@ function canonicalTfng(answer: string): string {
   return answer.trim();
 }
 
+function prepareFormTable(row: Record<string, unknown>): FormTableQuestion | null {
+  const rows = Array.isArray(row.rows)
+    ? row.rows.flatMap((item): FormTableRow[] => {
+        const record = asRecord(item);
+        if (!record) return [];
+        const label = text(record.label);
+        const answer = text(record.answer);
+        if (!label && !answer) return [];
+        const id = text(record.id) || `row_${Math.random().toString(36).slice(2, 10)}`;
+        return [{ id, label, answer }];
+      })
+    : [];
+  const note = typeof row.note === "string" ? row.note.trim() : "";
+  const markers = parseNoteGaps(note);
+  const provided = Array.isArray(row.gaps) ? row.gaps : [];
+  const gaps: FormTableGap[] = markers.map((marker) => {
+    const found = provided
+      .map((item) => asRecord(item))
+      .find((item) => item !== null && Number(item.marker) === marker);
+    return {
+      id: text(found?.id) || `gap_${marker}`,
+      marker,
+      answer: text(found?.answer),
+    };
+  });
+  if (rows.length === 0 && gaps.length === 0) return null;
+  const id = text(row.id) || `form_${Math.random().toString(36).slice(2, 10)}`;
+  return { id, type: "form_table", title: text(row.title), rows, note: gaps.length > 0 ? note : "", gaps };
+}
+
 function prepareQuestion(value: unknown): ObjectiveQuestion | null {
   const row = asRecord(value);
   if (!row) return null;
+  if (row.type === "form_table") return prepareFormTable(row);
   const prompt = text(row.prompt);
   const rawAnswer = text(row.answer);
   if (!prompt && !rawAnswer) return null;
-  const type = QUESTION_TYPES.includes(row.type as QuestionType) ? (row.type as QuestionType) : "short_text";
+  const type = STANDARD_QUESTION_TYPES.includes(row.type as StandardQuestionType)
+    ? (row.type as StandardQuestionType)
+    : "short_text";
   let options = Array.isArray(row.options) ? row.options.map((option) => text(option)).filter(Boolean) : [];
   let answer = rawAnswer;
   if (type === "true_false_not_given") {
@@ -214,7 +291,7 @@ function prepareQuestion(value: unknown): ObjectiveQuestion | null {
   return { id, type, prompt, options, answer };
 }
 
-function prepareQuestions(value: unknown): ObjectiveQuestion[] {
+export function prepareQuestions(value: unknown): ObjectiveQuestion[] {
   if (!Array.isArray(value)) return [];
   return value.map(prepareQuestion).filter((question): question is ObjectiveQuestion => question !== null);
 }

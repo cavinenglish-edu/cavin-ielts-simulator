@@ -1,3 +1,4 @@
+import { gapsInNoteOrder } from "@/lib/form-table";
 import type { ObjectiveQuestion } from "@/lib/exam-skill";
 
 export function normalizeAnswer(value: string): string {
@@ -50,17 +51,40 @@ export function scoreObjective(
   questions: ObjectiveQuestion[],
   answers: Record<string, string>,
 ): { correct: number; total: number; items: ScoreItem[] } {
-  const items = questions.map((question) => {
+  const items: ScoreItem[] = [];
+  for (const question of questions) {
+    if (question.type === "form_table") {
+      for (const row of question.rows) {
+        const given = answers[row.id] ?? "";
+        items.push({
+          id: row.id,
+          prompt: row.label,
+          given,
+          expected: row.answer,
+          ok: answersMatch(row.answer, given),
+        });
+      }
+      for (const gap of gapsInNoteOrder(question.note, question.gaps)) {
+        const given = answers[gap.id] ?? "";
+        items.push({
+          id: gap.id,
+          prompt: `Chỗ trống ${gap.marker}`,
+          given,
+          expected: gap.answer,
+          ok: answersMatch(gap.answer, given),
+        });
+      }
+      continue;
+    }
     const given = answers[question.id] ?? "";
-    const ok = answersMatch(question.answer, given, question.options);
-    return {
+    items.push({
       id: question.id,
       prompt: question.prompt,
       given,
       expected: question.answer,
-      ok,
-    };
-  });
+      ok: answersMatch(question.answer, given, question.options),
+    });
+  }
   return {
     correct: items.filter((item) => item.ok).length,
     total: items.length,
