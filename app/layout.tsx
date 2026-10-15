@@ -22,14 +22,6 @@ export const metadata: Metadata = {
     locale: "vi_VN",
     type: "website",
   },
-  icons: {
-    icon: [
-      { url: "/logo.png", type: "image/png" },
-      { url: "/favicon.ico" },
-    ],
-    shortcut: "/logo.png",
-    apple: "/logo.png",
-  },
 };
 
 export default function RootLayout({
