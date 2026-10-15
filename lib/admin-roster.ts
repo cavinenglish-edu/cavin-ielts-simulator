@@ -105,13 +105,7 @@ async function askRosterScript(
 ): Promise<PhonePinResult> {
   let response: Response;
   try {
-    response = await fetchImpl(url, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ phone, pin }),
-      cache: "no-store",
-      redirect: "follow",
-    });
+    response = await postRoster(url, phone, pin, fetchImpl);
   } catch {
     return { ok: false, reason: "unavailable" };
   }
@@ -129,6 +123,30 @@ async function askRosterScript(
   if (record.match === true) return { ok: true };
   if (record.match === false) return { ok: false, reason: "mismatch" };
   return { ok: false, reason: "unavailable" };
+}
+
+async function postRoster(url: string, phone: string, pin: string, fetchImpl: typeof fetch): Promise<Response> {
+  const first = await fetchImpl(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8",
+      "User-Agent": "Mozilla/5.0",
+    },
+    body: JSON.stringify({ phone, pin }),
+    cache: "no-store",
+    redirect: "manual",
+    signal: AbortSignal.timeout(20000),
+  });
+  if (first.status < 300 || first.status >= 400) return first;
+  const location = first.headers.get("location");
+  if (!location) return first;
+  return fetchImpl(new URL(location, url), {
+    method: "GET",
+    headers: { "User-Agent": "Mozilla/5.0" },
+    cache: "no-store",
+    redirect: "follow",
+    signal: AbortSignal.timeout(20000),
+  });
 }
 
 function asRows(values: unknown): string[][] {

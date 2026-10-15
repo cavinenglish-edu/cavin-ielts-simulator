@@ -132,4 +132,23 @@ describe("live sheet check", () => {
     assert.deepEqual(ok, { ok: true });
     assert.equal(bodies.length, 2);
   });
+
+  it("follows the web app redirect with a GET and reads the JSON there", async () => {
+    const calls: string[] = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+      const url = String(input);
+      calls.push(`${init?.method ?? "GET"} ${url}`);
+      if (init?.method === "POST") {
+        return new Response(null, { status: 302, headers: { location: "https://script.googleusercontent.com/macros/echo" } });
+      }
+      return new Response(JSON.stringify({ match: true }), { status: 200 });
+    };
+    const ok = await verifyAdminPhonePin("0900111222", "1111", {
+      env: { ADMIN_ROSTER_SCRIPT_URL: scriptUrl },
+      fetchImpl,
+    });
+    assert.deepEqual(ok, { ok: true });
+    assert.equal(calls[0]?.startsWith("POST "), true);
+    assert.equal(calls[1], "GET https://script.googleusercontent.com/macros/echo");
+  });
 });
