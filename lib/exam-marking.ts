@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI, type Part } from "@google/generative-ai";
+import { countWords } from "./ielts-score";
 
 export const MISSING_AI_KEY = "chưa chấm được vì thiếu khóa AI";
 export const MARKING_FAILED = "Chưa chấm được vì hệ thống chấm không trả lời đúng định dạng.";
@@ -117,14 +118,59 @@ const SPEAKING_FIELDS = [
 ] as const;
 
 const SPEAKING_RUBRIC = [
-  "You are an IELTS speaking examiner. The candidate's answers are the audio clips attached to this request. You must listen to the audio.",
+  "You are a strict IELTS speaking examiner. Give one set of scores for the whole test. The candidate's answers are the audio clips attached to this request. You must listen to the audio.",
   "Score Fluency and Coherence, Lexical Resource, Grammatical Range and Accuracy, and Pronunciation.",
-  "Each score is a multiple of 0.5 from 0 to 9.",
-  "Pronunciation is scored only from the sound of the audio, not from a transcript. Do not invent a transcript and then score pronunciation from it.",
-  "Write one short comment in Vietnamese for each criterion. Do not include a band inside the comment.",
+  "Each score is a multiple of 0.5 from 0 to 9. Award 7 only when the performance shows the features of a 7. A generous reading of a 6 is not a 7. Do not cluster every candidate at 6.5 or 7.",
+  "Pronunciation is scored only from the sound: intelligibility, stress, rhythm, and intonation, not from a transcript. Do not score pronunciation from a transcript. Do not write a transcript. Accent by itself is not a penalty.",
+  "Hesitation that breaks the message, a short Part 2 answer, and an answer that misses the question hold the score down. A 7 needs extended answers and flexible language, not only correct simple sentences.",
+  "Write one comment in Vietnamese for each criterion. Name one concrete strength you heard and one concrete limit. No empty praise. Do not include a band inside the comment.",
   "Return JSON only:",
-  '{"fluencyCoherence":6,"lexicalResource":6,"grammaticalRangeAccuracy":6,"pronunciation":6,"comments":{"fluencyCoherence":"...","lexicalResource":"...","grammaticalRangeAccuracy":"...","pronunciation":"..."}}',
+  '{"fluencyCoherence":5.5,"lexicalResource":6,"grammaticalRangeAccuracy":5.5,"pronunciation":6,"comments":{"fluencyCoherence":"...","lexicalResource":"...","grammaticalRangeAccuracy":"...","pronunciation":"..."}}',
 ].join("\n");
+
+const WRITING_RUBRIC = [
+  "You are a strict IELTS Academic writing examiner. Score only from the candidate script and the question.",
+  "Score Task 1 on Task Achievement, Coherence and Cohesion, Lexical Resource, Grammatical Range and Accuracy.",
+  "Task 1 needs a clear overview and accurate comparisons. Penalise invented data and personal opinion.",
+  "Score Task 2 on Task Response, Coherence and Cohesion, Lexical Resource, Grammatical Range and Accuracy.",
+  "Task 2 needs a position, ideas that are developed, and a conclusion that answers the question. A memorised opening does not raise the score.",
+  "If Task 1 is under 150 words, lower Task Achievement and state the word count in that comment. If Task 2 is under 250 words, lower Task Response and state the word count in that comment.",
+  "Each score is a multiple of 0.5 from 0 to 9. Award 7 only when the script shows the features of a 7 on that criterion. A generous reading of a 6 is not a 7. Do not cluster every script at 6.5 or 7. Use the rest of the scale when the script is weaker or stronger.",
+  "Each comment is in Vietnamese. Name one concrete thing in the script that earned the score and one concrete limit. No empty praise. For a score of 7 or higher, quote a short span that appears in the script. Do not include a band inside the comment.",
+  "Do not return an overall band. Task 2 is weighted double Task 1 by the system.",
+  "Return JSON only with this shape:",
+  '{"task1":{"taskAchievement":5.5,"coherenceCohesion":5,"lexicalResource":6,"grammaticalRangeAccuracy":5,"comments":{"taskAchievement":"...","coherenceCohesion":"...","lexicalResource":"...","grammaticalRangeAccuracy":"..."}},"task2":{"taskResponse":6,"coherenceCohesion":5.5,"lexicalResource":6,"grammaticalRangeAccuracy":5.5,"comments":{"taskResponse":"...","coherenceCohesion":"...","lexicalResource":"...","grammaticalRangeAccuracy":"..."}}}',
+].join("\n");
+
+const BAND_LIMIT = /nhưng|tuy nhiên|hạn chế|chưa|thiếu|giới hạn|however|although/i;
+const DIAGRAM_NOTE = "Biểu đồ không có để đối chiếu.";
+
+export type WritingScripts = {
+  task1Essay: string;
+  task2Essay: string;
+};
+
+function scriptWords(value: string): string[] {
+  return value.toLowerCase().match(/[a-z0-9]+(?:'[a-z]+)?/g) ?? [];
+}
+
+/** A 7 or above must quote the script and name a limit. Empty praise is not a justification. */
+function commentJustifiesBand(score: number, comment: string, script: string | undefined): boolean {
+  if (score < 7) return true;
+  if (!script?.trim() || !BAND_LIMIT.test(comment)) return false;
+  const source = scriptWords(script);
+  if (source.length < 2) return false;
+  const hay = ` ${scriptWords(comment).join(" ")} `;
+  const widest = Math.min(source.length, 8);
+  for (let size = widest; size >= 2; size -= 1) {
+    for (let index = 0; index + size <= source.length; index += 1) {
+      const phrase = source.slice(index, index + size).join(" ");
+      if (phrase.length < 8) continue;
+      if (hay.includes(` ${phrase} `)) return true;
+    }
+  }
+  return false;
+}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -167,7 +213,7 @@ export function parseModelJson(raw: string): unknown {
   }
 }
 
-export function parseWritingMark(raw: string): WritingMark | null {
+export function parseWritingMark(raw: string, scripts?: WritingScripts): WritingMark | null {
   const parsed = asRecord(parseModelJson(raw));
   const task1 = asRecord(parsed?.task1);
   const task2 = asRecord(parsed?.task2);
@@ -176,12 +222,17 @@ export function parseWritingMark(raw: string): WritingMark | null {
   const task1Scores = TASK1_FIELDS.map((field) => readCriterion(task1, task1Comments, field.key, field.label));
   const task2Scores = TASK2_FIELDS.map((field) => readCriterion(task2, task2Comments, field.key, field.label));
   if (task1Scores.some((item) => !item) || task2Scores.some((item) => !item)) return null;
-  const task1Band = averageBand(task1Scores.map((item) => item!.score));
-  const task2Band = averageBand(task2Scores.map((item) => item!.score));
+  const task1Marked = task1Scores as CriterionScore[];
+  const task2Marked = task2Scores as CriterionScore[];
+  const task1Justified = task1Marked.every((item) => commentJustifiesBand(item.score, item.comment, scripts?.task1Essay));
+  const task2Justified = task2Marked.every((item) => commentJustifiesBand(item.score, item.comment, scripts?.task2Essay));
+  if (!task1Justified || !task2Justified) return null;
+  const task1Band = averageBand(task1Marked.map((item) => item.score));
+  const task2Band = averageBand(task2Marked.map((item) => item.score));
   return {
     status: "marked",
-    task1: task1Scores as CriterionScore[],
-    task2: task2Scores as CriterionScore[],
+    task1: task1Marked,
+    task2: task2Marked,
     task1Band,
     task2Band,
     overall: writingOverallBand(task1Band, task2Band),
@@ -288,19 +339,15 @@ export function writingRequestParts(
   const chartView: ChartView = !asked ? "none" : seen ? "seen" : "unseen";
   const chartLine =
     chartView === "seen"
-      ? "The Task 1 chart is the attached image. Score Task Achievement from that diagram."
+      ? "The Task 1 chart is the attached image. Score Task Achievement from what is actually in the image and the question. Penalise data that is not in the image."
       : chartView === "unseen"
-        ? "The Task 1 chart could not be loaded. You cannot see the diagram. Score Task Achievement from the written prompt only. Do not invent details from a chart."
-        : "Task 1 has no chart.";
+        ? "The Task 1 diagram was not available. You cannot see the chart. Cap Task Achievement at 6.0 and, in the Task Achievement comment, say the diagram was not available. Do not invent chart details."
+        : "Task 1 has no chart. Score Task Achievement from the question and the script only.";
   const text = [
-    "You are an IELTS Academic writing examiner.",
-    "Score Task 1 on Task Achievement, Coherence and Cohesion, Lexical Resource, Grammatical Range and Accuracy.",
-    "Score Task 2 on Task Response, Coherence and Cohesion, Lexical Resource, Grammatical Range and Accuracy.",
-    "Each score is a multiple of 0.5 from 0 to 9.",
-    "Write one short comment in Vietnamese for each criterion. Do not include a band inside the comment.",
-    "Return JSON only with this shape:",
-    '{"task1":{"taskAchievement":6.5,"coherenceCohesion":6,"lexicalResource":6,"grammaticalRangeAccuracy":6,"comments":{"taskAchievement":"...","coherenceCohesion":"...","lexicalResource":"...","grammaticalRangeAccuracy":"..."}},"task2":{"taskResponse":6.5,"coherenceCohesion":6,"lexicalResource":6,"grammaticalRangeAccuracy":6,"comments":{"taskResponse":"...","coherenceCohesion":"...","lexicalResource":"...","grammaticalRangeAccuracy":"..."}}}',
+    WRITING_RUBRIC,
     chartLine,
+    `Task 1 word count: ${countWords(input.task1Essay)}.`,
+    `Task 2 word count: ${countWords(input.task2Essay)}.`,
     `Task 1 prompt: ${clip(input.task1Prompt, 4000)}`,
     `Task 1 essay: ${clip(input.task1Essay, 12000)}`,
     `Task 2 prompt: ${clip(input.task2Prompt, 4000)}`,
@@ -372,9 +419,41 @@ export async function markWritingEssays(
   const request = writingRequestParts(input, chart);
   const raw = await (io?.complete ?? complete)(request.parts, key);
   if (!raw) return null;
-  const marked = parseWritingMark(raw);
+  const marked = parseWritingMark(raw, { task1Essay: input.task1Essay, task2Essay: input.task2Essay });
   if (!marked) return null;
-  return { ...marked, chart: request.chart };
+  return capUnseenTaskAchievement({ ...marked, chart: request.chart });
+}
+
+function mentionsMissingDiagram(comment: string): boolean {
+  return /biểu đồ không có|diagram was not available|không được nhìn thấy/i.test(comment);
+}
+
+function withDiagramNote(comment: string): string {
+  if (mentionsMissingDiagram(comment)) return comment;
+  const next = `${comment} ${DIAGRAM_NOTE}`;
+  if (next.length <= 600) return next;
+  const room = Math.max(0, 600 - DIAGRAM_NOTE.length - 1);
+  return `${comment.slice(0, room).trim()} ${DIAGRAM_NOTE}`;
+}
+
+/** When the chart was not loaded, Task Achievement cannot sit above 6. */
+function capUnseenTaskAchievement(mark: WritingMark): WritingMark {
+  if (mark.chart !== "unseen") return mark;
+  const task1 = mark.task1.map((item) => {
+    if (item.key !== "taskAchievement") return item;
+    return {
+      ...item,
+      score: Math.min(item.score, 6),
+      comment: withDiagramNote(item.comment),
+    };
+  });
+  const task1Band = averageBand(task1.map((item) => item.score));
+  return {
+    ...mark,
+    task1,
+    task1Band,
+    overall: writingOverallBand(task1Band, mark.task2Band),
+  };
 }
 
 export async function markSpeakingAudio(
