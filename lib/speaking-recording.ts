@@ -66,6 +66,15 @@ export function normalizeAudioMime(mime: string): string | null {
   return base;
 }
 
+export function mimeForSpeakingPath(path: string): string | null {
+  const ext = path.split(".").pop()?.toLowerCase() ?? "";
+  if (ext === "webm") return "audio/webm";
+  if (ext === "mp3") return "audio/mpeg";
+  if (ext === "mp4") return "audio/mp4";
+  if (ext === "ogg") return "audio/ogg";
+  return null;
+}
+
 export function extensionForMime(mime: string): "webm" | "mp3" | "mp4" | "ogg" | null {
   const normalized = normalizeAudioMime(mime);
   if (normalized === "audio/webm") return "webm";

@@ -11,6 +11,26 @@ function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+export type SpeakingPrompt = {
+  part: 1 | 2 | 3;
+  questionIndex: number;
+  question: string;
+};
+
+export function speakingPrompts(exam: ExamDataSet): SpeakingPrompt[] {
+  const prompts: SpeakingPrompt[] = exam.part1.questions.map((item, questionIndex) => ({
+    part: 1,
+    questionIndex,
+    question: item.question,
+  }));
+  const cue = [exam.part2.topicTitle, exam.part2.taskCardPrompt, ...exam.part2.bulletPoints].filter((line) => line.trim()).join("\n");
+  prompts.push({ part: 2, questionIndex: 0, question: cue || exam.part2.topicTitle });
+  exam.part3.questions.forEach((item, questionIndex) => {
+    prompts.push({ part: 3, questionIndex, question: item.question });
+  });
+  return prompts;
+}
+
 export function speakingExamFromRow(row: Record<string, unknown>): ExamDataSet | null {
   const id = text(row.id);
   const title = text(row.title) || "Đề thi";

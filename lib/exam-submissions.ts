@@ -2,7 +2,7 @@ import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Skill } from "@/lib/exam-skill";
 
-export type MarkingStatus = "scored" | "marked" | "pending_key" | "no_transcript" | "marking_failed" | "saved";
+export type MarkingStatus = "scored" | "marked" | "pending_key" | "no_transcript" | "no_audio" | "marking_failed" | "saved";
 
 export type SubmissionRow = {
   paper_id: string;

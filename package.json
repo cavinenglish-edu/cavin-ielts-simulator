@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test lib/ielts-paper.test.ts lib/exam-sitting.test.ts lib/exam-catalog.test.ts lib/speaking-recording.test.ts lib/admin-roster.test.ts lib/form-table.test.ts lib/exam-marking.test.ts",
+    "test": "tsx --test lib/ielts-paper.test.ts lib/exam-sitting.test.ts lib/exam-catalog.test.ts lib/speaking-recording.test.ts lib/admin-roster.test.ts lib/form-table.test.ts lib/exam-marking.test.ts lib/ielts-band.test.ts lib/exam-receipt.test.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

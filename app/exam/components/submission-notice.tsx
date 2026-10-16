@@ -1,5 +1,4 @@
 import type { SubmitView } from "@/lib/exam-submit";
-import { ScoreResult } from "@/app/exam/components/objective-questions";
 
 export function SubmissionNotice({ view }: { view: SubmitView | null }) {
   if (!view) return null;
@@ -17,7 +16,6 @@ export function SubmissionNotice({ view }: { view: SubmitView | null }) {
       <p data-testid="paper-sent" className="text-center text-sm font-bold text-emerald-800">
         Bài đã được gửi.
       </p>
-      {view.objective ? <div className="mx-auto mt-3 max-w-3xl"><ScoreResult {...view.objective} /></div> : null}
       {writing && "overall" in writing ? (
         <div data-testid="writing-band" className="mx-auto mt-3 max-w-3xl space-y-3 text-sm text-slate-800">
           <p className="text-2xl font-black text-slate-900">Điểm Writing {writing.overall.toFixed(1)}</p>

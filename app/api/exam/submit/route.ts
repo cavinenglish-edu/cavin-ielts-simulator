@@ -1,6 +1,6 @@
 import { connection, NextResponse } from "next/server";
-import { readCatalog } from "@/lib/exam-catalog";
-import { FIXTURE_FORECAST_ID } from "@/lib/exam-fixture";
+import { PRACTICE_MIX_ID, readCatalog } from "@/lib/exam-catalog";
+import { FIXTURE_FORECAST_ID, fixtureSpeaking } from "@/lib/exam-fixture";
 import { loadFullPaper } from "@/lib/full-paper";
 import { examBlanks } from "@/lib/form-table";
 import { parseSkill } from "@/lib/exam-skill";
@@ -9,13 +9,16 @@ import { supabase } from "@/lib/supabase";
 import {
   MARKING_FAILED,
   MISSING_AI_KEY,
-  NO_TRANSCRIPT,
-  markSpeakingTranscript,
+  NO_AUDIO,
+  markSpeakingAudio,
   markWritingEssays,
   readModelKey,
 } from "@/lib/exam-marking";
+import { objectiveBand } from "@/lib/ielts-band";
+import { readSpeakingClip } from "@/lib/speaking-bytes";
+import { speakingExamFromRow, speakingPrompts, type SpeakingPrompt } from "@/lib/speaking-script";
 import { saveSubmission } from "@/lib/exam-submissions";
-import { cleanAnswerMap, cleanClips, cleanEssay, isSubmitSkill, type SubmitView } from "@/lib/exam-submit";
+import { cleanAnswerMap, cleanClips, cleanEssay, isSubmitSkill, type SpeakingClip, type SubmitView } from "@/lib/exam-submit";
 import { effectiveNow, remainingSeconds } from "@/lib/exam-sitting";
 import { countWords, scoreObjective } from "@/lib/ielts-score";
 import { readSession } from "@/lib/sitting-cookie";
@@ -32,6 +35,35 @@ async function speakingOpen(session: ExamSession): Promise<boolean> {
   if (selected.error || !selected.data) return false;
   const row = selected.data as Record<string, unknown>;
   return readCatalog(row.paper, parseSkill(row.skill)) === "forecast";
+}
+
+const MAX_SPEAKING_BYTES = 18 * 1024 * 1024;
+
+async function speakingQuestions(paperId: string): Promise<SpeakingPrompt[]> {
+  if (paperId === PRACTICE_MIX_ID) return [];
+  if (process.env.E2E_FIXTURE === "1") {
+    return speakingPrompts(fixtureSpeaking(paperId === FIXTURE_FORECAST_ID ? "forecast" : "actual"));
+  }
+  if (!supabase || !paperId) return [];
+  const selected = await supabase.from("ielts_exams").select("*").eq("id", paperId).eq("status", "published").maybeSingle();
+  if (selected.error || !selected.data) return [];
+  const exam = speakingExamFromRow(selected.data as Record<string, unknown>);
+  return exam ? speakingPrompts(exam) : [];
+}
+
+async function heardClips(clips: SpeakingClip[]) {
+  if (clips.length === 0) return null;
+  const ordered = [...clips].sort((a, b) => a.part - b.part || a.questionIndex - b.questionIndex);
+  const heard: Array<{ part: 1 | 2 | 3; questionIndex: number; mimeType: string; base64: string }> = [];
+  let total = 0;
+  for (const clip of ordered) {
+    const file = await readSpeakingClip(clip.path);
+    if (!file) return null;
+    total += file.bytes;
+    if (total > MAX_SPEAKING_BYTES) return null;
+    heard.push({ part: clip.part, questionIndex: clip.questionIndex, mimeType: file.mimeType, base64: file.base64 });
+  }
+  return heard;
 }
 
 function sent(extra: Omit<SubmitView, "ok" | "stored" | "message">): SubmitView {
@@ -77,14 +109,32 @@ export async function POST(request: Request) {
     const allowed = new Set(examBlanks(groups).map((blank) => blank.id));
     const answers = cleanAnswerMap(row?.answers, allowed);
     const objective = scoreObjective(groups, answers);
+    const converted = objectiveBand(skill, objective.correct, objective.total);
     const saved = await saveSubmission({
       ...identity,
       payload: { answers },
-      score: objective,
+      score: {
+        correct: objective.correct,
+        total: objective.total,
+        items: objective.items,
+        band: converted.band,
+        scaledRaw: converted.raw,
+        estimated: converted.estimated,
+      },
       marking_status: "scored",
     });
     if (!saved.ok) return NextResponse.json({ ok: false, message: saved.message }, { status: 503 });
-    return NextResponse.json(sent({ objective }));
+    // The answer key stays in the saved score. The sitting response does not include it.
+    return NextResponse.json(
+      sent({
+        objective: {
+          correct: objective.correct,
+          total: objective.total,
+          band: converted.band,
+          estimated: converted.estimated,
+        },
+      }),
+    );
   }
 
   if (skill === "writing") {
@@ -134,20 +184,20 @@ export async function POST(request: Request) {
   }
 
   const clips = cleanClips(row?.recordings, candidatePrefix(session.candidateNumber));
-  const transcript = clips.map((clip) => clip.transcript.trim()).filter(Boolean).join("\n");
   const payload = { recordings: clips };
   const key = readModelKey(process.env);
-  if (!transcript) {
-    const saved = await saveSubmission({ ...identity, payload, score: null, marking_status: "no_transcript" });
-    if (!saved.ok) return NextResponse.json({ ok: false, message: saved.message }, { status: 503 });
-    return NextResponse.json(sent({ speaking: { status: "no_transcript", message: NO_TRANSCRIPT } }));
-  }
   if (!key) {
     const saved = await saveSubmission({ ...identity, payload, score: null, marking_status: "pending_key" });
     if (!saved.ok) return NextResponse.json({ ok: false, message: saved.message }, { status: 503 });
     return NextResponse.json(sent({ speaking: { status: "pending_key", message: MISSING_AI_KEY } }));
   }
-  const marked = await markSpeakingTranscript(transcript, key);
+  const audio = await heardClips(clips);
+  if (!audio) {
+    const saved = await saveSubmission({ ...identity, payload, score: null, marking_status: "no_audio" });
+    if (!saved.ok) return NextResponse.json({ ok: false, message: saved.message }, { status: 503 });
+    return NextResponse.json(sent({ speaking: { status: "no_audio", message: NO_AUDIO } }));
+  }
+  const marked = await markSpeakingAudio({ clips: audio, questions: await speakingQuestions(session.paperId) }, key);
   const saved = await saveSubmission({
     ...identity,
     payload,

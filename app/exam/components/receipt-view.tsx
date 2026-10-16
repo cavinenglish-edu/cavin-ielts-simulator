@@ -6,18 +6,50 @@ import { countWords } from "@/lib/ielts-score";
 import type { PublicSession } from "@/lib/exam-sitting";
 import { emptyRecovery, parseRecovery, RECOVERY_KEY, type RecoveryState } from "@/lib/sitting-recovery";
 
+const SKILL_LABEL: Record<string, string> = {
+  listening: "Nghe",
+  reading: "Đọc",
+  writing: "Viết",
+  speaking: "Nói",
+};
+
+type ReceiptItem = {
+  id: string;
+  prompt: string;
+  given: string;
+  expected: string;
+  ok: boolean;
+};
+
+type ReceiptCriterion = {
+  key: string;
+  label: string;
+  score: number;
+  comment: string;
+};
+
 type SavedLine = {
   skill: string;
   headline: string;
   note: string;
   correct?: number;
   total?: number;
-  overall?: number;
+  band?: number;
+  estimated?: boolean;
+  scaledRaw?: number;
+  items?: ReceiptItem[];
+  criteria?: ReceiptCriterion[];
+};
+
+type ReceiptPayload = {
+  kind?: "actual" | "mix" | "forecast";
+  overall?: number | null;
+  submissions?: SavedLine[];
 };
 
 export function ReceiptView({ session }: { session: PublicSession }) {
   const [saved, setSaved] = useState<RecoveryState>(() => emptyRecovery(session.paperId));
-  const [lines, setLines] = useState<SavedLine[]>([]);
+  const [receipt, setReceipt] = useState<ReceiptPayload>({});
 
   useEffect(() => {
     const raw = window.sessionStorage.getItem(RECOVERY_KEY) || window.localStorage.getItem(RECOVERY_KEY);
@@ -30,14 +62,21 @@ export function ReceiptView({ session }: { session: PublicSession }) {
     void fetch("/api/exam/submissions", { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) return;
-        const data = (await response.json()) as { submissions?: SavedLine[] };
-        if (!cancelled && Array.isArray(data.submissions)) setLines(data.submissions);
+        const data = (await response.json()) as ReceiptPayload;
+        if (!cancelled) setReceipt(data);
       })
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const lines = (receipt.submissions ?? []).filter((line) => {
+    if (receipt.kind === "mix") return line.skill !== "speaking";
+    if (receipt.kind === "forecast") return line.skill === "speaking";
+    return true;
+  });
+  const overall = receipt.kind === "actual" && typeof receipt.overall === "number" ? receipt.overall : null;
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-10">
@@ -47,18 +86,56 @@ export function ReceiptView({ session }: { session: PublicSession }) {
         <p data-testid="paper-sent" className="text-sm font-semibold text-emerald-800">
           {lines.length > 0 ? "Bài đã được gửi." : "Bài Writing vẫn nằm trên máy này cho đến khi máy chủ nhận được."}
         </p>
+        {overall !== null ? (
+          <p data-testid="receipt-overall" className="text-3xl font-black text-slate-900">
+            Điểm tổng {overall.toFixed(1)}
+          </p>
+        ) : null}
         {lines.length > 0 ? (
-          <ul className="space-y-2 text-sm text-slate-800">
+          <ul className="space-y-4 text-sm text-slate-800">
             {lines.map((line) => (
-              <li key={line.skill} className="border border-slate-200 px-3 py-2">
-                <p className="font-bold uppercase">{line.skill}</p>
+              <li key={line.skill} className="border border-slate-200 px-4 py-3">
+                <p className="font-bold uppercase">{SKILL_LABEL[line.skill] ?? line.skill}</p>
+                {typeof line.band === "number" ? (
+                  <p data-testid={`receipt-band-${line.skill}`} className="text-2xl font-black text-slate-900">
+                    Band {line.band.toFixed(1)}
+                  </p>
+                ) : null}
                 {typeof line.correct === "number" && typeof line.total === "number" ? (
                   <p data-testid={`receipt-score-${line.skill}`}>
                     {line.correct}/{line.total}
                   </p>
                 ) : null}
-                {typeof line.overall === "number" ? <p>Điểm {line.overall.toFixed(1)}</p> : null}
-                {line.note ? <p>{line.note}</p> : null}
+                {line.estimated ? (
+                  <p data-testid={`receipt-estimate-${line.skill}`} className="font-semibold text-slate-700">
+                    ước lượng{typeof line.scaledRaw === "number" ? ` · quy về ${line.scaledRaw}/40` : ""}
+                  </p>
+                ) : null}
+                {line.note ? <p data-testid={`receipt-note-${line.skill}`}>{line.note}</p> : null}
+                {line.criteria && line.criteria.length > 0 ? (
+                  <ul className="mt-2 space-y-2">
+                    {line.criteria.map((item) => (
+                      <li key={item.key} className="border border-slate-200 px-3 py-2">
+                        <p className="font-semibold">
+                          {item.label}: {item.score.toFixed(1)}
+                        </p>
+                        <p>{item.comment}</p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {line.items && line.items.length > 0 ? (
+                  <ul data-testid={`receipt-key-${line.skill}`} className="mt-3 space-y-2">
+                    {line.items.map((item) => (
+                      <li key={item.id} className="border border-slate-200 px-3 py-2">
+                        <p className="font-semibold text-slate-900">{item.prompt}</p>
+                        <p className={item.ok ? "text-emerald-800" : "text-red-800"}>
+                          {item.ok ? "Đúng" : "Sai"} — bạn: {item.given || "(trống)"} — đáp án: {item.expected}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </li>
             ))}
           </ul>

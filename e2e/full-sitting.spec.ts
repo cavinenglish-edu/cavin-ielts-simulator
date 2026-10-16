@@ -52,9 +52,17 @@ async function reachReading(page: Page) {
   await page.getByTestId("play-audio").click();
   await expect(page.getByTestId("exam-timer")).toHaveText("02:00");
   await expect(page.getByTestId("listening-phase")).toHaveText("Review");
+  const submitted = page.waitForResponse(
+    (response) => response.url().includes("/api/exam/submit") && response.request().method() === "POST",
+  );
   await fastForward(page, 130_000);
+  const body = (await (await submitted).json()) as { objective?: { items?: unknown; total?: number } };
+  expect(body.objective?.items).toBeUndefined();
+  expect(JSON.stringify(body)).not.toContain("Anna");
+  expect(body.objective?.total).toBe(6);
   await expect(page.getByTestId("paper-sent")).toHaveText("Bài đã được gửi.");
-  await expect(page.getByTestId("raw-score")).toContainText("/6");
+  await expect(page.getByTestId("raw-score")).toHaveCount(0);
+  await expect(page.getByText("đáp án:")).toHaveCount(0);
   await expect(page).toHaveURL(/\/exam\/reading/);
   await expect.poll(async () => page.evaluate(() => Boolean((window as Window & { __sectionLocked?: boolean }).__sectionLocked))).toBe(true);
 }
@@ -155,6 +163,21 @@ test("empty forecast tab waits for admin", async ({ page }) => {
   await page.goto("/exam?library=empty");
   await page.getByTestId("tab-forecast").click();
   await expect(page.getByTestId("forecast-empty")).toContainText("Admin xuất bản");
+});
+
+test("finished receipt shows bands and the listening key", async ({ page }) => {
+  const started = await page.request.post("/api/e2e/bootstrap", { data: { phase: "done" } });
+  expect(started.ok()).toBeTruthy();
+  await page.goto("/exam/receipt");
+  await expect(page.getByTestId("receipt-band-listening")).toHaveText("Band 7.0");
+  await expect(page.getByTestId("receipt-score-listening")).toHaveText("30/40");
+  await expect(page.getByTestId("receipt-estimate-listening")).toHaveCount(0);
+  await expect(page.getByTestId("receipt-key-listening")).toContainText("đáp án: Anna");
+  await expect(page.getByTestId("receipt-band-reading")).toHaveText("Band 7.0");
+  await expect(page.getByTestId("receipt-note-writing")).toContainText("không được nhìn thấy");
+  await expect(page.getByTestId("receipt-band-speaking")).toHaveText("Band 6.5");
+  await expect(page.getByTestId("receipt-overall")).toHaveText("Điểm tổng 7.0");
+  await page.screenshot({ path: `${MEDIA}/receipt-bands.png`, fullPage: true });
 });
 
 test("part 2 prepares in silence, then records", async ({ page }) => {
