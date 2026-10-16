@@ -1,7 +1,6 @@
 import { TFNG_OPTIONS } from "@/lib/exam-skill";
 import { examBlanks } from "@/lib/form-table";
 import type { ClientQuestion } from "@/lib/exam-paper-view";
-import type { ScoreItem } from "@/lib/ielts-score";
 import { FormTableView } from "@/app/exam/components/form-table-view";
 
 export function ObjectiveQuestions({
@@ -79,35 +78,5 @@ export function ObjectiveQuestions({
         );
       })}
     </div>
-  );
-}
-
-export function ScoreResult({
-  correct,
-  total,
-  items,
-}: {
-  correct: number;
-  total: number;
-  items: ScoreItem[];
-}) {
-  return (
-    <section className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
-      <h2 className="text-lg font-bold text-slate-900">Kết quả</h2>
-      <p data-testid="raw-score" className="text-3xl font-black text-slate-900">
-        {correct}/{total}
-      </p>
-      <p className="text-sm text-slate-600">Điểm thô trên số câu của đề này.</p>
-      <ul className="space-y-2">
-        {items.map((item) => (
-          <li key={item.id} className="rounded-xl border border-slate-200 px-4 py-3 text-sm">
-            <p className="font-semibold text-slate-900">{item.prompt}</p>
-            <p className={item.ok ? "text-emerald-800" : "text-red-800"}>
-              {item.ok ? "Đúng" : "Sai"} — bạn: {item.given || "(trống)"} — đáp án: {item.expected}
-            </p>
-          </li>
-        ))}
-      </ul>
-    </section>
   );
 }

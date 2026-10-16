@@ -3,14 +3,16 @@ import type { ScoreItem } from "@/lib/ielts-score";
 import type { SpeakingMark, WritingMark } from "@/lib/exam-marking";
 
 export type MarkingGap = {
-  status: "pending_key" | "no_transcript" | "marking_failed";
+  status: "pending_key" | "no_transcript" | "no_audio" | "marking_failed";
   message: string;
 };
 
 export type ObjectiveScoreView = {
   correct: number;
   total: number;
-  items: ScoreItem[];
+  band: number;
+  estimated: boolean;
+  items?: ScoreItem[];
 };
 
 export type SubmitView = {

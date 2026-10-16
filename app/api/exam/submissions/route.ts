@@ -1,13 +1,19 @@
 import { connection, NextResponse } from "next/server";
-import { MISSING_AI_KEY, MARKING_FAILED, NO_TRANSCRIPT } from "@/lib/exam-marking";
-import { listSubmissions, type MarkingStatus } from "@/lib/exam-submissions";
+import { readCatalog } from "@/lib/exam-catalog";
+import { FIXTURE_FORECAST_ID } from "@/lib/exam-fixture";
+import { buildReceipt, receiptKind, type ReceiptKind } from "@/lib/exam-receipt";
+import { listSubmissions } from "@/lib/exam-submissions";
+import { parseSkill } from "@/lib/exam-skill";
+import { supabase } from "@/lib/supabase";
 import { readSession } from "@/lib/sitting-cookie";
 
-function noteFor(status: MarkingStatus): string {
-  if (status === "pending_key") return MISSING_AI_KEY;
-  if (status === "no_transcript") return NO_TRANSCRIPT;
-  if (status === "marking_failed") return MARKING_FAILED;
-  return "";
+async function kindFor(paperId: string): Promise<ReceiptKind> {
+  if (process.env.E2E_FIXTURE === "1") return receiptKind(paperId, paperId === FIXTURE_FORECAST_ID ? "forecast" : "actual");
+  if (!supabase || !paperId) return receiptKind(paperId, null);
+  const selected = await supabase.from("ielts_exams").select("skill, paper").eq("id", paperId).maybeSingle();
+  if (selected.error || !selected.data) return receiptKind(paperId, null);
+  const row = selected.data as { skill?: unknown; paper?: unknown };
+  return receiptKind(paperId, readCatalog(row.paper, parseSkill(row.skill)));
 }
 
 export async function GET() {
@@ -19,21 +25,6 @@ export async function GET() {
     candidateNumber: session.candidateNumber,
     phone: session.phone,
   });
-  return NextResponse.json({
-    submissions: rows.map((row) => {
-      const score = row.score && !Array.isArray(row.score) ? (row.score as Record<string, unknown>) : null;
-      const correct = typeof score?.correct === "number" ? score.correct : undefined;
-      const total = typeof score?.total === "number" ? score.total : undefined;
-      const overall = typeof score?.overall === "number" ? score.overall : undefined;
-      return {
-        skill: row.skill,
-        sent: true,
-        headline: "Bài đã được gửi.",
-        note: noteFor(row.marking_status),
-        correct,
-        total,
-        overall,
-      };
-    }),
-  });
+  const kind = await kindFor(session.paperId);
+  return NextResponse.json(buildReceipt(kind, rows, session.section === "done"));
 }

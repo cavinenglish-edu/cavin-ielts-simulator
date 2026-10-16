@@ -85,21 +85,27 @@ Câu chữ vẫn hiện trong lúc trả lời. Không còn chế độ giấu c
 
 ## 4. Lưu ở đâu, chấm thế nào
 
+Mục này khớp phần chấm đang chạy trên code, cập nhật 16/10/2026.
+
 Trong lúc làm Nghe, Đọc, Viết, câu trả lời, highlight, ghi chú và hai bài viết nằm trên chính trình duyệt đó. Tải lại trang thì lấy lại, đồng hồ tính tiếp từ lúc phần đó bắt đầu, không reset về đủ giờ. Đổi máy là mất nháp. Server chỉ giữ “đang ở phần nào” và mốc giờ.
 
 Khi hết giờ, bài mới gửi lên kho bài nộp: tên, số báo danh, điện thoại, đề, kỹ năng, nội dung bài và kết quả chấm. Cùng một người, cùng một phần, cùng một lần bắt đầu giờ thì ghi đè, không tạo thêm dòng mới. File Nói gửi vào kho file, cuối phần Nói.
 
-**Nghe và Đọc** chấm bằng đáp án. Không qua Gemini. Không phân biệt hoa thường, khoảng trắng thừa được gom. Nhiều đáp án chấp nhận thì quản trị ngăn bằng dấu `|`, ví dụ `Corolla|Toyota`. Chữ T, F, NG và True, False, Not Given được tính như nhau. Trắc nghiệm nhận cả chữ cái và nguyên văn phương án. Kết quả là số câu đúng trên tổng số câu của đề, kèm từng câu đúng hay sai. Chưa quy ra band IELTS.
+**Nghe và Đọc** chấm bằng đáp án. Không gửi sang Gemini. Không phân biệt hoa thường, khoảng trắng thừa được gom. Nhiều đáp án chấp nhận thì quản trị ngăn bằng dấu `|`, ví dụ `Corolla|Toyota`. Chữ T, F, NG và True, False, Not Given được tính như nhau. Trắc nghiệm nhận cả chữ cái và nguyên văn phương án.
 
-Ngay sau khi nộp Nghe, màn hình hiện số câu đúng và đáp án đúng, rồi mới sang Đọc. Đọc cũng vậy trước khi sang Viết. Với một ca mock, đây là lỗ hổng: thí sinh thấy đáp án giữa chừng.
+Số câu đúng được quy ra band Academic bằng hai bảng đã công bố, Nghe một bảng và Đọc một bảng vì hai bảng không giống nhau. Bảng Nghe lấy từ IDP / IELTS Australia (“IELTS Listening band scores”). Bảng Đọc lấy từ IDP (“IELTS Academic Reading — Raw Score Conversion”). Đề đủ 40 câu tra đúng số câu đúng trên bảng. Đề ngắn hơn thì lấy số câu đúng chia tổng số câu, nhân 40, làm tròn tới số nguyên gần nhất, rồi mới tra bảng. Band của đề ngắn ghi **ước lượng**.
 
-**Viết** gửi cả hai bài cho Gemini. Task 1 chấm Task Achievement, Coherence and Cohesion, Lexical Resource, Grammatical Range and Accuracy. Task 2 chấm Task Response và ba tiêu chí còn lại. Mỗi tiêu chí là bội số của 0,5, có một nhận xét tiếng Việt. Điểm task là trung bình bốn tiêu chí, làm tròn 0,5. Điểm Writing tính Task 2 gấp đôi Task 1, rồi làm tròn 0,5. Biên nhận hiện điểm này khi Gemini trả lời đúng định dạng.
+Ví dụ Nghe đủ 40 câu: 30 hoặc 31 câu đúng là band 7. 32 đến 34 câu đúng là band 7.5. Cùng 32 câu đúng ở Đọc Academic là band 7, vì ô band 7 của Đọc là 30–32 và ô 7.5 bắt đầu từ 33.
 
-Gemini nhận đề Task 1 và đường dẫn hình dưới dạng chữ, không xem nội dung bức hình. Bài có biểu đồ thì điểm Task Achievement dễ lệch. Nếu Gemini không trả lời đúng, hoặc máy chủ chưa gắn dịch vụ chấm, bài vẫn lưu và báo chưa chấm được. Hệ thống không bịa một band cho đủ.
+Trong lúc ngồi thi, màn hình không hiện đáp án và không hiện từng câu đúng hay sai. Hết Nghe thì sang Đọc. Hết Đọc thì sang Viết. Đáp án chỉ mở trên biên nhận, sau khi ca đã xong. Luyện trộn dừng sau Viết, nên biên nhận của bài luyện được hiện đáp án Nghe và Đọc vào lúc đó.
 
-**Nói** lưu file ghi âm. Phần chấm chỉ chạy khi có lời thoại chữ. Phòng thi hiện không tạo lời thoại và không gửi lời thoại kèm file. Kết quả thực tế của một ca hôm nay là: đã lưu bản ghi, chưa chấm được vì chưa có lời thoại. Khi nào có lời thoại, Gemini mới chấm bốn tiêu chí Fluency and Coherence, Lexical Resource, Grammatical Range and Accuracy, Pronunciation, nhận xét tiếng Việt, điểm tổng là trung bình làm tròn 0,5. Phát âm khi đó chỉ nhìn chữ, nên điểm phát âm được giữ thận trọng, không nghe âm thanh.
+**Viết** gửi cả hai bài cho Gemini. Task 1 chấm Task Achievement, Coherence and Cohesion, Lexical Resource, Grammatical Range and Accuracy. Task 2 chấm Task Response và ba tiêu chí còn lại. Mỗi tiêu chí là bội số của 0,5, có một nhận xét tiếng Việt. Điểm task là trung bình bốn tiêu chí, làm tròn 0,5 theo luật IELTS (.25 và .75 làm tròn lên). Điểm Writing tính Task 2 gấp đôi Task 1, rồi làm tròn 0,5.
 
-Biên nhận cuối ca hiện từng kỹ năng đã gửi, số câu đúng nếu là Nghe hoặc Đọc, điểm nếu Viết hoặc Nói đã chấm xong, và hai bài viết còn trên máy. Không có một band tổng bốn kỹ năng. Trang quản trị không mở các bài này. Giáo viên muốn xem thì chưa có màn trong hệ thống.
+Nếu Task 1 có đường dẫn hình, máy chủ tải chính file hình và gửi các byte đó cho Gemini, để model nhìn biểu đồ chứ không chỉ đọc một đường dẫn. Tải hình lỗi thì vẫn chấm bài từ đề chữ, và biên nhận ghi rằng biểu đồ không được nhìn thấy khi chấm. Gemini không trả lời đúng, hoặc máy chủ chưa gắn dịch vụ chấm, thì bài vẫn lưu và hiện “chưa chấm được”. Hệ thống không bịa một band.
+
+**Nói** hết Part 3, khi các đoạn ghi đã nằm trong kho, máy gửi chính file âm thanh kèm câu hỏi cho `gemini-3.8-flash`. Model này nghe được audio, kể cả webm. Bốn tiêu chí là Fluency and Coherence, Lexical Resource, Grammatical Range and Accuracy, và Pronunciation. Pronunciation chấm từ âm thanh, không từ lời thoại chữ. Mỗi tiêu chí có một nhận xét tiếng Việt. Band Nói là trung bình bốn tiêu chí, làm tròn 0,5, .25 và .75 làm tròn lên. Không tải được bản ghi, hoặc Gemini không trả lời đúng, thì bài vẫn lưu và hiện “chưa chấm được”. Không bịa band.
+
+**Biên nhận** của một ca đề thật hiện band Nghe, Đọc, Viết và Nói, kèm số câu đúng trên tổng số câu ở Nghe và Đọc, rồi một band tổng: trung bình bốn band, cùng cách làm tròn. Luyện trộn chỉ hiện Nghe, Đọc và Viết. Không có band Nói và không có điểm tổng bốn kỹ năng. Forecast chỉ hiện band Nói. Thiếu một band thì không tính điểm tổng. Trang quản trị vẫn chưa mở danh sách bài nộp.
 
 ## 5. Phần đã vững, dùng được
 
@@ -116,22 +122,21 @@ Biên nhận cuối ca hiện từng kỹ năng đã gửi, số câu đúng n�
 
 ## 6. Nên làm tiếp, theo thứ tự
 
-Chỉ những việc đổi được một ca mock tại trung tâm. Phần đã đủ thì ghi rõ.
+Chỉ những việc còn đổi được một ca mock tại trung tâm. Phần đã chạy thì ghi ở mục đã đủ.
 
-1. **Có đề trên site.** Danh sách công khai đang rỗng, Luyện trộn chưa bật. Trước khi mời lớp vào, xuất bản ít nhất một đề thật đủ bốn phần. Muốn Luyện trộn thì cần ít nhất ba đề thật, mỗi kỹ năng lấy từ một đề. Muốn thi Nói lẻ thì xuất bản một Forecast. Đây là việc vận hành, phần mềm đã có chỗ để đăng.
+1. **Có đề trên site.** Lúc đối chiếu 15/10, danh sách công khai đang rỗng và Luyện trộn chưa bật. Trước khi mời lớp vào, xuất bản ít nhất một đề thật đủ bốn phần. Muốn Luyện trộn thì cần ít nhất ba đề thật, mỗi kỹ năng lấy từ một đề. Muốn thi Nói lẻ thì xuất bản một Forecast. Đây là việc vận hành, phần mềm đã có chỗ để đăng.
 
-2. **Ra điểm Nói.** File đã lưu được, nhưng ca thi kết thúc với câu chưa chấm vì không có lời thoại. Học viên không nhận band Nói. Cần lấy lời từ bản ghi, hoặc ghi lời trong lúc nói, rồi đưa lời đó vào Gemini. Chừng nào chưa có bước này, phần Nói của ca mock chỉ là buổi luyện có lưu tiếng, chưa phải bài được chấm.
+2. **Giáo viên xem được bài.** Bài và band đã nằm trong kho, biên nhận của thí sinh đã hiện band. Trang quản trị vẫn chưa có danh sách bài nộp. Một màn cho giáo viên là phần còn lại của việc này.
 
-3. **Giấu đáp án đến cuối ca.** Nghe và Đọc đang hiện đáp án đúng trước khi sang phần sau. Một ca có giám thị vẫn hỏng nếu thí sinh đọc đáp án giữa giờ. Giữ số câu đúng cho giáo viên, chỉ mở đáp án khi cả ca đã xong.
-
-4. **Giáo viên xem được bài, và Nghe/Đọc ra band.** Bài nằm trong kho nhưng trang quản trị không có danh sách bài nộp. Điểm Nghe và Đọc là số câu đúng, chưa đổi sang band. Phụ huynh và học viên cần band. Một bảng quy đổi cố định cộng một màn cho giáo viên là đủ cho ca mock. Chưa cần band tổng bốn kỹ năng trong ngày đầu, nhưng nên có ngay sau khi từng kỹ năng đã ra số.
-
-5. **Task 1 có hình thì máy phải nhìn thấy hình.** Hiện máy chấm chỉ nhận đường dẫn. Đề Academic có biểu đồ thì điểm Task 1 chưa đáng tin. Đề không có hình thì phần chấm chữ hiện tại dùng được.
-
-6. **Băng Nghe chạy một mạch.** Hôm nay mỗi section phải bấm phát lại. Giám thị nhắc thì vẫn thi được, nên không chặn ca. Làm tự phát liên tục khi muốn sát phòng BC/IDP hơn.
+3. **Băng Nghe chạy một mạch.** Mỗi section vẫn phải bấm phát lại. Giám thị nhắc thì vẫn thi được, nên không chặn ca. Làm tự phát liên tục khi muốn sát phòng BC/IDP hơn.
 
 Đã đủ, không cần làm trước ca đầu:
 
+- Nghe và Đọc ra band. Đề 40 câu tra bảng Academic đã công bố. Đề ngắn hơn thì quy về 40 câu và ghi ước lượng.
+- Đáp án Nghe và Đọc chỉ mở trên biên nhận, sau khi ca xong. Luyện trộn cũng chỉ mở đáp án trên biên nhận đó.
+- Band tổng bốn kỹ năng trên biên nhận đề thật. Luyện trộn không có band Nói và không có điểm tổng. Forecast chỉ có band Nói.
+- Nói được chấm từ file ghi âm bằng gemini-3.8-flash. Model nghe audio. Pronunciation lấy từ âm thanh. Gemini lỗi thì hiện “chưa chấm được”, không bịa band.
+- Task 1 có hình thì máy tải hình và gửi byte cho Gemini. Tải lỗi thì vẫn chấm từ đề chữ và ghi là không nhìn thấy biểu đồ.
 - Nộp sớm. Ca đúng giờ IELTS thì ngồi hết giờ là đúng.
 - Giấy nháp Part 2 trên màn hình. Phát giấy tại phòng là đủ.
 - Chặn copy khi có giám thị.

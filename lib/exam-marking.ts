@@ -1,10 +1,25 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, type Part } from "@google/generative-ai";
 
 export const MISSING_AI_KEY = "chưa chấm được vì thiếu khóa AI";
 export const MARKING_FAILED = "Chưa chấm được vì hệ thống chấm không trả lời đúng định dạng.";
 export const NO_TRANSCRIPT = "Đã lưu bản ghi. Chưa chấm được vì chưa có lời thoại.";
+export const NO_AUDIO = "Chưa chấm được vì không nghe được bản ghi.";
+
+/**
+ * gemini-3.8-flash accepts audio (webm, mp3, ogg, mp4) and images.
+ * Speaking uses this same model so the examiner hears the recording.
+ * https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash
+ */
+export const SPEAKING_AUDIO_MODEL = "gemini-3.8-flash";
 
 const KEY_NAMES = ["GEMINI_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY", "GOOGLE_API_KEY"] as const;
+const CHART_BYTES = 7 * 1024 * 1024;
+const CHART_MS = 5_000;
+const CHART_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+
+export function markingModelName(env: Record<string, string | undefined> = process.env): string {
+  return env.GEMINI_MODEL?.trim() || SPEAKING_AUDIO_MODEL;
+}
 
 export function readModelKey(env: Record<string, string | undefined>): string | null {
   for (const name of KEY_NAMES) {
@@ -14,6 +29,7 @@ export function readModelKey(env: Record<string, string | undefined>): string | 
   return null;
 }
 
+/** Nearest 0.5. For a positive score, .25 and .75 round up — the IELTS overall rule. */
 export function roundToHalf(value: number): number {
   if (!Number.isFinite(value)) return 0;
   const clamped = Math.min(9, Math.max(0, value));
@@ -31,8 +47,17 @@ export function writingOverallBand(task1: number, task2: number): number {
   return roundToHalf((task1 + task2 * 2) / 3);
 }
 
+/** Mean of the four skill bands. Missing a band means there is no overall. */
+export function fourSkillOverall(bands: Array<number | null | undefined>): number | null {
+  if (bands.length !== 4) return null;
+  if (bands.some((band) => typeof band !== "number" || !Number.isFinite(band))) return null;
+  const total = bands.reduce<number>((sum, band) => sum + (band as number), 0);
+  return roundToHalf(total / 4);
+}
+
 export type WritingCriterionKey = "taskAchievement" | "coherenceCohesion" | "lexicalResource" | "grammaticalRangeAccuracy";
 export type WritingTask2Key = "taskResponse" | "coherenceCohesion" | "lexicalResource" | "grammaticalRangeAccuracy";
+export type ChartView = "none" | "seen" | "unseen";
 
 export type CriterionScore = {
   key: string;
@@ -48,12 +73,26 @@ export type WritingMark = {
   task1Band: number;
   task2Band: number;
   overall: number;
+  chart: ChartView;
 };
 
 export type SpeakingMark = {
   status: "marked";
   criteria: CriterionScore[];
   overall: number;
+};
+
+export type SpeakingAudioClip = {
+  part: number;
+  questionIndex: number;
+  mimeType: string;
+  base64: string;
+};
+
+export type SpeakingQuestionPrompt = {
+  part: number;
+  questionIndex: number;
+  question: string;
 };
 
 const TASK1_FIELDS: Array<{ key: WritingCriterionKey; label: string }> = [
@@ -76,6 +115,16 @@ const SPEAKING_FIELDS = [
   { key: "grammaticalRangeAccuracy", label: "Grammatical Range and Accuracy" },
   { key: "pronunciation", label: "Pronunciation" },
 ] as const;
+
+const SPEAKING_RUBRIC = [
+  "You are an IELTS speaking examiner. The candidate's answers are the audio clips attached to this request. You must listen to the audio.",
+  "Score Fluency and Coherence, Lexical Resource, Grammatical Range and Accuracy, and Pronunciation.",
+  "Each score is a multiple of 0.5 from 0 to 9.",
+  "Pronunciation is scored only from the sound of the audio, not from a transcript. Do not invent a transcript and then score pronunciation from it.",
+  "Write one short comment in Vietnamese for each criterion. Do not include a band inside the comment.",
+  "Return JSON only:",
+  '{"fluencyCoherence":6,"lexicalResource":6,"grammaticalRangeAccuracy":6,"pronunciation":6,"comments":{"fluencyCoherence":"...","lexicalResource":"...","grammaticalRangeAccuracy":"...","pronunciation":"..."}}',
+].join("\n");
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -136,6 +185,7 @@ export function parseWritingMark(raw: string): WritingMark | null {
     task1Band,
     task2Band,
     overall: writingOverallBand(task1Band, task2Band),
+    chart: "none",
   };
 }
 
@@ -152,16 +202,141 @@ export function parseSpeakingMark(raw: string): SpeakingMark | null {
   };
 }
 
-async function complete(prompt: string, key: string): Promise<string | null> {
+export function isPublicChartUrl(value: string): boolean {
+  let url: URL;
   try {
-    // gemini-2.5-flash is closed to new keys. GEMINI_MODEL can override this.
-    const modelName = process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  if (url.username || url.password) return false;
+  const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  if (!host || host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) return false;
+  if (host === "metadata.google.internal" || host === "0.0.0.0") return false;
+  return !isPrivateAddress(host);
+}
+
+function isPrivateAddress(host: string): boolean {
+  if (host.includes(":")) {
+    return host === "::1" || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe80");
+  }
+  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (!match) return false;
+  const parts = match.slice(1).map((part) => Number(part));
+  if (parts.some((part) => part > 255)) return true;
+  const [a, b] = parts;
+  if (a === 10 || a === 127 || a === 0) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  return false;
+}
+
+function chartMime(header: string | null): string | null {
+  const mime = header?.split(";")[0]?.trim().toLowerCase() ?? "";
+  if (mime === "image/jpg") return "image/jpeg";
+  return CHART_TYPES.has(mime) ? mime : null;
+}
+
+export async function fetchChartImage(url: string): Promise<{ mimeType: string; data: string } | null> {
+  let current = url.trim();
+  for (let hop = 0; hop < 3; hop += 1) {
+    if (!isPublicChartUrl(current)) return null;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), CHART_MS);
+    try {
+      const response = await fetch(current, { redirect: "manual", signal: controller.signal });
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get("location");
+        await response.body?.cancel().catch(() => undefined);
+        if (!location) return null;
+        current = new URL(location, current).toString();
+        continue;
+      }
+      if (!response.ok) return null;
+      const mimeType = chartMime(response.headers.get("content-type"));
+      if (!mimeType) return null;
+      const buffer = Buffer.from(await response.arrayBuffer());
+      if (buffer.byteLength === 0 || buffer.byteLength > CHART_BYTES) return null;
+      return { mimeType, data: buffer.toString("base64") };
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  return null;
+}
+
+function clip(value: string, max: number): string {
+  return value.length > max ? value.slice(0, max) : value;
+}
+
+export function writingRequestParts(
+  input: {
+    task1Prompt: string;
+    task1ImageUrl?: string;
+    task1Essay: string;
+    task2Prompt: string;
+    task2Essay: string;
+  },
+  chart: { mimeType: string; data: string } | null,
+): { parts: Part[]; chart: ChartView } {
+  const asked = Boolean(input.task1ImageUrl?.trim());
+  const seen = Boolean(asked && chart?.data);
+  const chartView: ChartView = !asked ? "none" : seen ? "seen" : "unseen";
+  const chartLine =
+    chartView === "seen"
+      ? "The Task 1 chart is the attached image. Score Task Achievement from that diagram."
+      : chartView === "unseen"
+        ? "The Task 1 chart could not be loaded. You cannot see the diagram. Score Task Achievement from the written prompt only. Do not invent details from a chart."
+        : "Task 1 has no chart.";
+  const text = [
+    "You are an IELTS Academic writing examiner.",
+    "Score Task 1 on Task Achievement, Coherence and Cohesion, Lexical Resource, Grammatical Range and Accuracy.",
+    "Score Task 2 on Task Response, Coherence and Cohesion, Lexical Resource, Grammatical Range and Accuracy.",
+    "Each score is a multiple of 0.5 from 0 to 9.",
+    "Write one short comment in Vietnamese for each criterion. Do not include a band inside the comment.",
+    "Return JSON only with this shape:",
+    '{"task1":{"taskAchievement":6.5,"coherenceCohesion":6,"lexicalResource":6,"grammaticalRangeAccuracy":6,"comments":{"taskAchievement":"...","coherenceCohesion":"...","lexicalResource":"...","grammaticalRangeAccuracy":"..."}},"task2":{"taskResponse":6.5,"coherenceCohesion":6,"lexicalResource":6,"grammaticalRangeAccuracy":6,"comments":{"taskResponse":"...","coherenceCohesion":"...","lexicalResource":"...","grammaticalRangeAccuracy":"..."}}}',
+    chartLine,
+    `Task 1 prompt: ${clip(input.task1Prompt, 4000)}`,
+    `Task 1 essay: ${clip(input.task1Essay, 12000)}`,
+    `Task 2 prompt: ${clip(input.task2Prompt, 4000)}`,
+    `Task 2 essay: ${clip(input.task2Essay, 12000)}`,
+  ].join("\n");
+  const parts: Part[] = [];
+  if (seen && chart) parts.push({ inlineData: { mimeType: chart.mimeType, data: chart.data } });
+  parts.push({ text });
+  return { parts, chart: chartView };
+}
+
+export function speakingPromptParts(input: {
+  clips: SpeakingAudioClip[];
+  questions: SpeakingQuestionPrompt[];
+}): Part[] | null {
+  const audible = input.clips.filter((clip) => clip.base64.trim() && clip.mimeType.startsWith("audio/"));
+  if (audible.length === 0) return null;
+  const parts: Part[] = [{ text: SPEAKING_RUBRIC }];
+  for (const clip of audible) {
+    const question = input.questions.find((item) => item.part === clip.part && item.questionIndex === clip.questionIndex);
+    parts.push({
+      text: `Part ${clip.part}, answer ${clip.questionIndex + 1}. Question: ${question?.question.trim() || "Question text was not stored."}`,
+    });
+    parts.push({ inlineData: { mimeType: clip.mimeType, data: clip.base64 } });
+  }
+  return parts;
+}
+
+async function complete(parts: Part[], key: string): Promise<string | null> {
+  try {
     const ai = new GoogleGenerativeAI(key);
     const model = ai.getGenerativeModel({
-      model: modelName,
+      model: markingModelName(),
       generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
     });
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContent(parts);
     const text = result.response.text();
     return text.trim() ? text : null;
   } catch {
@@ -169,9 +344,10 @@ async function complete(prompt: string, key: string): Promise<string | null> {
   }
 }
 
-function clip(value: string, max: number): string {
-  return value.length > max ? value.slice(0, max) : value;
-}
+type MarkerIO = {
+  loadChart?: (url: string) => Promise<{ mimeType: string; data: string } | null>;
+  complete?: (parts: Part[], key: string) => Promise<string | null>;
+};
 
 export async function markWritingEssays(
   input: {
@@ -182,38 +358,34 @@ export async function markWritingEssays(
     task2Essay: string;
   },
   key: string,
+  io?: MarkerIO,
 ): Promise<WritingMark | null> {
-  const prompt = [
-    "You are an IELTS Academic writing examiner.",
-    "Score Task 1 on Task Achievement, Coherence and Cohesion, Lexical Resource, Grammatical Range and Accuracy.",
-    "Score Task 2 on Task Response, Coherence and Cohesion, Lexical Resource, Grammatical Range and Accuracy.",
-    "Each score is a multiple of 0.5 from 0 to 9.",
-    "Write one short comment in Vietnamese for each criterion. Do not include a band inside the comment.",
-    "Return JSON only with this shape:",
-    '{"task1":{"taskAchievement":6.5,"coherenceCohesion":6,"lexicalResource":6,"grammaticalRangeAccuracy":6,"comments":{"taskAchievement":"...","coherenceCohesion":"...","lexicalResource":"...","grammaticalRangeAccuracy":"..."}},"task2":{"taskResponse":6.5,"coherenceCohesion":6,"lexicalResource":6,"grammaticalRangeAccuracy":6,"comments":{"taskResponse":"...","coherenceCohesion":"...","lexicalResource":"...","grammaticalRangeAccuracy":"..."}}}',
-    `Task 1 prompt: ${clip(input.task1Prompt, 4000)}`,
-    input.task1ImageUrl ? `Task 1 image URL: ${clip(input.task1ImageUrl, 500)}` : "Task 1 image: none",
-    `Task 1 essay: ${clip(input.task1Essay, 12000)}`,
-    `Task 2 prompt: ${clip(input.task2Prompt, 4000)}`,
-    `Task 2 essay: ${clip(input.task2Essay, 12000)}`,
-  ].join("\n");
-  const raw = await complete(prompt, key);
+  if (!key.trim()) return null;
+  let chart: { mimeType: string; data: string } | null = null;
+  if (input.task1ImageUrl?.trim()) {
+    try {
+      chart = await (io?.loadChart ?? fetchChartImage)(input.task1ImageUrl.trim());
+    } catch {
+      chart = null;
+    }
+  }
+  const request = writingRequestParts(input, chart);
+  const raw = await (io?.complete ?? complete)(request.parts, key);
   if (!raw) return null;
-  return parseWritingMark(raw);
+  const marked = parseWritingMark(raw);
+  if (!marked) return null;
+  return { ...marked, chart: request.chart };
 }
 
-export async function markSpeakingTranscript(transcript: string, key: string): Promise<SpeakingMark | null> {
-  const prompt = [
-    "You are an IELTS speaking examiner.",
-    "Score Fluency and Coherence, Lexical Resource, Grammatical Range and Accuracy, and Pronunciation.",
-    "Each score is a multiple of 0.5 from 0 to 9.",
-    "Pronunciation can only be judged from the words on the page, so be conservative.",
-    "Write one short comment in Vietnamese for each criterion.",
-    "Return JSON only:",
-    '{"fluencyCoherence":6,"lexicalResource":6,"grammaticalRangeAccuracy":6,"pronunciation":6,"comments":{"fluencyCoherence":"...","lexicalResource":"...","grammaticalRangeAccuracy":"...","pronunciation":"..."}}',
-    `Transcript: ${clip(transcript, 12000)}`,
-  ].join("\n");
-  const raw = await complete(prompt, key);
+export async function markSpeakingAudio(
+  input: { clips: SpeakingAudioClip[]; questions: SpeakingQuestionPrompt[] },
+  key: string,
+  completeFn: (parts: Part[], key: string) => Promise<string | null> = complete,
+): Promise<SpeakingMark | null> {
+  if (!key.trim()) return null;
+  const parts = speakingPromptParts(input);
+  if (!parts) return null;
+  const raw = await completeFn(parts, key);
   if (!raw) return null;
   return parseSpeakingMark(raw);
 }
