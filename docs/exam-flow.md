@@ -8,7 +8,7 @@ Nút đăng nhập quản trị đã có trên site: khi bấm, nút khóa lại
 
 ## 1. Ai làm gì, từ lúc quản trị đăng nhập đến lúc thí sinh xong bốn kỹ năng
 
-**Quản trị** vào trang quản trị, nhập số điện thoại và mã PIN riêng. Mã của học viên không mở trang này. Vào được rồi thì tạo đề, lưu nháp hoặc xuất bản, rồi đăng xuất. Đề nháp không hiện cho học viên. Đề đã xuất bản hiện trong thư viện. Trang quản trị không có mã truy cập riêng cho từng đề, và không có màn xem bài học viên đã nộp.
+**Quản trị** vào trang quản trị, nhập số điện thoại và mã PIN riêng. Mã của học viên không mở trang này. Vào được rồi thì tạo đề, lưu nháp hoặc xuất bản, xem bài đã nộp, rồi đăng xuất. Đề nháp không hiện cho học viên. Đề đã xuất bản hiện trong thư viện. Trang quản trị không có mã truy cập riêng cho từng đề. Quản trị đã đăng nhập mở danh sách bài nộp tại /admin/submissions.
 
 **Học viên** bấm Bắt đầu thi thử trên trang chủ, vào thư viện. Header khi chưa nhập mã chỉ ghi “Chưa xác thực”. Nút giữ lại là **Nhập Mã PIN Dự Thi**.
 
@@ -105,7 +105,7 @@ Nếu Task 1 có đường dẫn hình, máy chủ tải chính file hình và g
 
 **Nói** hết Part 3, khi các đoạn ghi đã nằm trong kho, máy gửi chính file âm thanh kèm câu hỏi cho `gemini-3.8-flash`. Model này nghe được audio, kể cả webm. Bốn tiêu chí là Fluency and Coherence, Lexical Resource, Grammatical Range and Accuracy, và Pronunciation. Pronunciation chấm từ âm thanh, không từ lời thoại chữ. Mỗi tiêu chí có một nhận xét tiếng Việt. Band Nói là trung bình bốn tiêu chí, làm tròn 0,5, .25 và .75 làm tròn lên. Không tải được bản ghi, hoặc Gemini không trả lời đúng, thì bài vẫn lưu và hiện “chưa chấm được”. Không bịa band.
 
-**Biên nhận** của một ca đề thật hiện band Nghe, Đọc, Viết và Nói, kèm số câu đúng trên tổng số câu ở Nghe và Đọc, rồi một band tổng: trung bình bốn band, cùng cách làm tròn. Luyện trộn chỉ hiện Nghe, Đọc và Viết. Không có band Nói và không có điểm tổng bốn kỹ năng. Forecast chỉ hiện band Nói. Thiếu một band thì không tính điểm tổng. Trang quản trị vẫn chưa mở danh sách bài nộp.
+**Biên nhận** của một ca đề thật hiện band Nghe, Đọc, Viết và Nói, kèm số câu đúng trên tổng số câu ở Nghe và Đọc, rồi một band tổng: trung bình bốn band, cùng cách làm tròn. Luyện trộn chỉ hiện Nghe, Đọc và Viết. Không có band Nói và không có điểm tổng bốn kỹ năng. Forecast chỉ hiện band Nói. Thiếu một band thì không tính điểm tổng. Trang quản trị mở danh sách bài nộp tại /admin/submissions. Bài Viết hoặc Nói chưa chấm được thì bấm Chấm lại để chạy lại Gemini. Nghe và Đọc không chấm lại bằng Gemini vì điểm đã lấy từ đáp án.
 
 ## 5. Phần đã vững, dùng được
 
@@ -119,6 +119,7 @@ Nếu Task 1 có đường dẫn hình, máy chủ tải chính file hình và g
 - Viết có hai task riêng, đếm từ, tắt kiểm tra chính tả, và công thức điểm đúng kiểu IELTS khi Gemini chấm được.
 - Nói có micro, giọng giám khảo, Part 1 rồi cue card 1 phút cộng 2 phút rồi Part 3, và có chỗ lưu file.
 - Hết giờ mới nộp. Không có đường nộp khi đồng hồ còn chạy.
+- Quản trị đã đăng nhập xem bài đã nộp tại /admin/submissions: tên, số báo danh, tên đề, kỹ năng, thời gian và kết quả. Mở một bài thì thấy câu trả lời hoặc bài viết, nhận xét tiêu chí, và nghe file Nói bằng liên kết có hạn. Viết và Nói chưa chấm được có nút Chấm lại. Nghe và Đọc không có nút này.
 
 ## 6. Nên làm tiếp, theo thứ tự
 
@@ -126,9 +127,7 @@ Chỉ những việc còn đổi được một ca mock tại trung tâm. Phần
 
 1. **Có đề trên site.** Lúc đối chiếu 15/10, danh sách công khai đang rỗng và Luyện trộn chưa bật. Trước khi mời lớp vào, xuất bản ít nhất một đề thật đủ bốn phần. Muốn Luyện trộn thì cần ít nhất ba đề thật, mỗi kỹ năng lấy từ một đề. Muốn thi Nói lẻ thì xuất bản một Forecast. Đây là việc vận hành, phần mềm đã có chỗ để đăng.
 
-2. **Giáo viên xem được bài.** Bài và band đã nằm trong kho, biên nhận của thí sinh đã hiện band. Trang quản trị vẫn chưa có danh sách bài nộp. Một màn cho giáo viên là phần còn lại của việc này.
-
-3. **Băng Nghe chạy một mạch.** Mỗi section vẫn phải bấm phát lại. Giám thị nhắc thì vẫn thi được, nên không chặn ca. Làm tự phát liên tục khi muốn sát phòng BC/IDP hơn.
+2. **Băng Nghe chạy một mạch.** Mỗi section vẫn phải bấm phát lại. Giám thị nhắc thì vẫn thi được, nên không chặn ca. Làm tự phát liên tục khi muốn sát phòng BC/IDP hơn.
 
 Đã đủ, không cần làm trước ca đầu:
 

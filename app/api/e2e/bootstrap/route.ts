@@ -92,4 +92,32 @@ async function seedReceipt(now: number) {
     marking_status: "marked",
     score: { status: "marked", overall: 6.5 },
   });
+  await saveSubmission({
+    ...identity,
+    skill: "writing",
+    section_started_at: now - 1000,
+    payload: {
+      task1: {
+        prompt: "The chart shows boat traffic.",
+        imageUrl: "https://cdn.example/chart.png",
+        essay: "The harbour was busier in the morning.",
+      },
+      task2: {
+        prompt: "Discuss both views.",
+        essay: "Cities should keep a working harbour.",
+      },
+    },
+    score: null,
+    marking_status: "marking_failed",
+  });
+  await saveSubmission({
+    ...identity,
+    skill: "speaking",
+    section_started_at: now - 1000,
+    payload: {
+      recordings: [{ part: 1, questionIndex: 0, path: "VN102-849201/fixture-full/part-1-q-0-clip1.webm", transcript: "" }],
+    },
+    score: null,
+    marking_status: "no_audio",
+  });
 }

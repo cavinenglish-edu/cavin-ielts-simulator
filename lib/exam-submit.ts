@@ -33,6 +33,14 @@ export type SpeakingClip = {
 
 const CLIP_PATH = /^[a-zA-Z0-9_-]{1,40}\/[a-zA-Z0-9_-]{1,80}\/part-[123]-q-\d{1,2}-[a-zA-Z0-9_-]{1,40}\.(webm|mp3|mp4|ogg)$/;
 
+export function speakingCandidatePrefix(candidateNumber: string): string {
+  return candidateNumber.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40) || "candidate";
+}
+
+export function isSpeakingClipPath(path: string): boolean {
+  return CLIP_PATH.test(path);
+}
+
 export function isSubmitSkill(value: unknown): value is Exclude<Skill, never> {
   return value === "listening" || value === "reading" || value === "writing" || value === "speaking";
 }
@@ -61,7 +69,7 @@ export function cleanClips(value: unknown, candidatePrefix: string): SpeakingCli
     const questionIndex = typeof row.questionIndex === "number" ? row.questionIndex : Number.NaN;
     const path = typeof row.path === "string" ? row.path : "";
     if (!part || !Number.isInteger(questionIndex) || questionIndex < 0 || questionIndex > 19) continue;
-    if (!CLIP_PATH.test(path) || !path.startsWith(`${candidatePrefix}/`)) continue;
+    if (!isSpeakingClipPath(path) || !path.startsWith(`${candidatePrefix}/`)) continue;
     const transcript = typeof row.transcript === "string" ? row.transcript.slice(0, 8000) : "";
     clips.push({ part, questionIndex, path, transcript });
   }
