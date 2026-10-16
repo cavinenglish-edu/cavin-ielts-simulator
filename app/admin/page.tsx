@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import Link from "next/link";
+import { AdminChrome } from "@/app/admin/chrome";
 import { ExamList } from "@/app/admin/exam-list";
 import { LoginForm } from "@/app/admin/login-form";
 import { PaperForm } from "@/app/admin/paper-form";
@@ -18,26 +18,11 @@ type AdminSearch = { id?: string | string[]; error?: string | string[] };
 
 export default function AdminPage({ searchParams }: { searchParams: Promise<AdminSearch> }) {
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900">
-      <header className="bg-slate-900 text-white border-b border-slate-800">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="font-extrabold tracking-tight">
-              IELTS <span className="text-red-500">on Computer</span>
-            </span>
-            <span className="text-xs font-medium px-2 py-1 rounded bg-slate-800 border border-slate-700">Quản trị đề</span>
-          </div>
-          <Link href="/exam" className="text-xs text-slate-300 hover:text-white">
-            Thư viện thí sinh
-          </Link>
-        </div>
-      </header>
-      <main className="max-w-6xl mx-auto px-6 py-8">
-        <Suspense fallback={<AdminSkeleton />}>
-          <AdminBody searchParams={searchParams} />
-        </Suspense>
-      </main>
-    </div>
+    <AdminChrome badge="Quản trị đề" current="papers">
+      <Suspense fallback={<AdminSkeleton />}>
+        <AdminBody searchParams={searchParams} />
+      </Suspense>
+    </AdminChrome>
   );
 }
 

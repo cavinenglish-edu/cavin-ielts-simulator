@@ -53,6 +53,24 @@ export async function listExams(): Promise<{ ok: true; items: ExamListItem[] } |
   return { ok: true, items };
 }
 
+export async function examTitlesById(ids: string[]): Promise<Map<string, string>> {
+  const unique = [...new Set(ids.filter((id) => id.trim()))];
+  if (unique.length === 0) return new Map();
+  const supabase = adminClient();
+  if (!supabase) return new Map();
+  const { data, error } = await supabase.from("ielts_exams").select("id, title").in("id", unique);
+  if (error || !data) return new Map();
+  return new Map(data.map((row) => [String(row.id), String(row.title ?? "").trim() || "Đề thi"]));
+}
+
+export async function getExamRecord(id: string): Promise<Record<string, unknown> | null> {
+  const supabase = adminClient();
+  if (!supabase || !id) return null;
+  const { data, error } = await supabase.from("ielts_exams").select("*").eq("id", id).maybeSingle();
+  if (error || !data) return null;
+  return data as Record<string, unknown>;
+}
+
 export async function getExam(id: string): Promise<{ ok: true; paper: PaperInput } | { ok: false; message: string }> {
   const supabase = adminClient();
   if (!supabase) {

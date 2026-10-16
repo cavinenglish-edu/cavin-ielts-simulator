@@ -18,14 +18,10 @@ import { objectiveBand } from "@/lib/ielts-band";
 import { readSpeakingClip } from "@/lib/speaking-bytes";
 import { speakingExamFromRow, speakingPrompts, type SpeakingPrompt } from "@/lib/speaking-script";
 import { saveSubmission } from "@/lib/exam-submissions";
-import { cleanAnswerMap, cleanClips, cleanEssay, isSubmitSkill, type SpeakingClip, type SubmitView } from "@/lib/exam-submit";
+import { cleanAnswerMap, cleanClips, cleanEssay, isSubmitSkill, speakingCandidatePrefix, type SpeakingClip, type SubmitView } from "@/lib/exam-submit";
 import { effectiveNow, remainingSeconds } from "@/lib/exam-sitting";
 import { countWords, scoreObjective } from "@/lib/ielts-score";
 import { readSession } from "@/lib/sitting-cookie";
-
-function candidatePrefix(candidateNumber: string): string {
-  return candidateNumber.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40) || "candidate";
-}
 
 async function speakingOpen(session: ExamSession): Promise<boolean> {
   if (session.section === "speaking") return true;
@@ -183,7 +179,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const clips = cleanClips(row?.recordings, candidatePrefix(session.candidateNumber));
+  const clips = cleanClips(row?.recordings, speakingCandidatePrefix(session.candidateNumber));
   const payload = { recordings: clips };
   const key = readModelKey(process.env);
   if (!key) {
